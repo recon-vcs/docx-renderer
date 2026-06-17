@@ -1,4 +1,4 @@
-import { renderAsync } from '../src/docx-preview';
+import { renderSync } from '../src/docx-preview';
 
 const fixtureUrls = import.meta.glob<string>('/tests/fixtures/*.docx', { query: '?url', import: 'default', eager: true });
 
@@ -21,7 +21,7 @@ async function render(source: Blob | ArrayBuffer) {
 	styleContainer.innerHTML = '';
 	documentContainer.innerHTML = '';
 	try {
-		await renderAsync(source, documentContainer, styleContainer, { inWrapper: true });
+		await renderSync(source, documentContainer, styleContainer, { inWrapper: true });
 		status.textContent = 'done';
 	} catch (err) {
 		status.textContent = `error: ${(err as Error).message}`;
