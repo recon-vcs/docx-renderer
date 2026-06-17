@@ -37,6 +37,7 @@
     "NOTICE"
   ],
   "scripts": {
+    "dev": "vite",
     "build": "rollup --config rollup.config.mjs",
     "watch": "rollup --config rollup.config.mjs --watch",
     "test": "vitest run",
@@ -59,6 +60,7 @@
     "rollup-plugin-node-externals": "^6.1.2",
     "tslib": "^2.4.0",
     "typescript": "^5.3.3",
+    "vite": "^7.3.5",
     "vitest": "^3.0.5"
   }
 }
