@@ -45,6 +45,7 @@
     "test:browser": "playwright test"
   },
   "dependencies": {
+    "@types/node": "^25.9.3",
     "jszip": ">=3.0.0",
     "konva": "^9.3.1",
     "lodash-es": "^4.17.21"
