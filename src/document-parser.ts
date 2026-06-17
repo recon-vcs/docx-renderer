@@ -1071,6 +1071,10 @@ export class DocumentParser {
 					result.verticalJustification = xml.attr(el, "val");
 					break;
 
+				case "jc":
+					result.justification = xml.attr(el, "val");
+					break;
+
 				case "pos":
 					result.position = xml.attr(el, "val");
 					break;

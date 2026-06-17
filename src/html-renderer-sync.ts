@@ -235,6 +235,8 @@ export class HtmlRendererSync {
 			.${c} table td, .${c} table th { vertical-align: top; }
 			.${c} p { margin: 0pt; min-height: 1em; }
 			.${c} span { white-space: pre-wrap; overflow-wrap: break-word; }
+			.${c} math { vertical-align: middle; }
+			.${c} .${c}-math-paragraph math { display: inline-block; }
 			.${c} a { color: inherit; text-decoration: inherit; }
 			.${c} img, ${c} svg { vertical-align: baseline; }
 			.${c} svg { fill: transparent; }
@@ -1834,7 +1836,7 @@ export class HtmlRendererSync {
 				break;
 
 			case DomType.MmlMathParagraph:
-				oNode = await this.renderContainer(elem, 'span');
+				oNode = await this.renderMmlMathParagraph(elem);
 				// 作为子元素插入,忽略溢出检测
 				if (parent) {
 					appendChildren(parent, oNode);
@@ -2042,6 +2044,31 @@ export class HtmlRendererSync {
 		const parent = createElementNS(ns, tagName as any, props);
 		await this.renderChildren(elem, parent);
 		return parent;
+	}
+
+	async renderMmlMathParagraph(elem: OpenXmlElement) {
+		const oContainer = createElement('span');
+
+		oContainer.classList.add(`${this.className}-math-paragraph`);
+		oContainer.style.display = 'block';
+		oContainer.style.textAlign = this.mathJustificationToTextAlign(elem.props?.justification);
+		oContainer.style.textIndent = '0px';
+		oContainer.dataset.overflow = await this.renderChildren(elem, oContainer);
+
+		return oContainer;
+	}
+
+	mathJustificationToTextAlign(justification?: string) {
+		switch (justification) {
+			case 'left':
+				return 'left';
+			case 'right':
+				return 'right';
+			case 'center':
+			case 'centerGroup':
+			default:
+				return 'center';
+		}
 	}
 
 	async renderParagraph(elem: WmlParagraph, parent: HTMLElement) {

@@ -194,6 +194,8 @@ export class HtmlRenderer {
 			.${c} table td, .${c} table th { vertical-align: top; }
 			.${c} p { margin: 0pt; min-height: 1em; }
 			.${c} span { white-space: pre-wrap; overflow-wrap: break-word; }
+			.${c} math { vertical-align: middle; }
+			.${c} .${c}-math-paragraph math { display: inline-block; }
 			.${c} a { color: inherit; text-decoration: inherit; }
 			.${c} img, ${c} svg { vertical-align: baseline; }
 			.${c} .clearfix::after { content: ""; display: block; line-height: 0; clear: both; }
@@ -1051,7 +1053,7 @@ export class HtmlRenderer {
 				return this.renderContainerNS(elem, ns.mathML, "math", { xmlns: ns.mathML });
 
 			case DomType.MmlMathParagraph:
-				return this.renderContainer(elem, "span");
+				return this.renderMmlMathParagraph(elem);
 
 			case DomType.MmlFraction:
 				return this.renderContainerNS(elem, ns.mathML, "mfrac");
@@ -1151,6 +1153,32 @@ export class HtmlRenderer {
 
 	renderContainerNS(elem: OpenXmlElement, ns: string, tagName: string, props?: Record<string, any>) {
 		return createElementNS(ns, tagName, props, this.renderChildren(elem));
+	}
+
+	renderMmlMathParagraph(elem: OpenXmlElement) {
+		const result = createElement("span");
+
+		result.classList.add(`${this.className}-math-paragraph`);
+		result.style.display = "block";
+		result.style.textAlign = this.mathJustificationToTextAlign(elem.props?.justification);
+		result.style.textIndent = "0px";
+
+		this.renderChildren(elem, result);
+
+		return result;
+	}
+
+	mathJustificationToTextAlign(justification?: string) {
+		switch (justification) {
+			case "left":
+				return "left";
+			case "right":
+				return "right";
+			case "center":
+			case "centerGroup":
+			default:
+				return "center";
+		}
 	}
 
 	renderParagraph(elem: WmlParagraph) {
