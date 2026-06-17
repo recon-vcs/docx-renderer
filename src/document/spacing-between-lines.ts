@@ -73,11 +73,11 @@ export function parseLineSpacing(paragraphProperties: ParagraphProperties, secti
 	let { snapToGrid, spacing } = paragraphProperties;
 	// original line spacing
 	let lineSpacing: Record<string, any> = {};
+	// original line number, kept outside the `if (spacing)` block so the
+	// docGrid AtLeast correction below can still reference it.
+	let originLine: number;
 
 	if (spacing) {
-		// original line number
-		let originLine: number;
-
 		for (const key in spacing) {
 			switch (key) {
 				case 'line':
@@ -147,6 +147,12 @@ export function parseLineSpacing(paragraphProperties: ParagraphProperties, secti
 			case DocGridType.SnapToChars:
 				if (typeof lineSpacing['line-height'] === 'number') {
 					lineSpacing['line-height'] = `${lineSpacing['line-height'] * docGrid.linePitch / 20}pt` as string;
+				} else if (spacing?.lineRule === LineSpacingRule.AtLeast) {
+					// AtLeast is a floor, not a fixed height: actual height is
+					// whichever is larger between the explicit minimum and the
+					// grid pitch. Previously skipped entirely because line-height
+					// was already a string (calc(...)) by this point.
+					lineSpacing['line-height'] = `max(${originLine / 20}pt, ${docGrid.linePitch / 20}pt)`;
 				}
 				break;
 			case DocGridType.Default:
