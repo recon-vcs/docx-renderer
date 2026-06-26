@@ -21,15 +21,13 @@ import { BaseHeaderFooterPart } from './header-footer/parts';
 import { Part } from './common/part';
 import { VmlElement } from './vml/vml';
 import { WmlCommentRangeStart, WmlCommentReference } from './comments/elements';
-import { getPresetGeometryPaths } from './shapes/preset-geometry';
-import Konva from 'konva';
 import type { Stage } from 'konva/lib/Stage';
 import type { Layer } from 'konva/lib/Layer';
-import type { Group } from 'konva/lib/Group';
-import { Overflow, ChildrenType, createElement, createSvgElement, createElementNS, removeAllElements, appendChildren, removeElements, createStyleElement, appendComment, checkOverflow, findParent } from './render/dom-utils';
+import { Overflow, ChildrenType, createElement, createElementNS, removeAllElements, appendChildren, removeElements, createStyleElement, appendComment, checkOverflow, findParent } from './render/dom-utils';
 import { TableContext, CellPos, CellVerticalMergeType, renderTable as renderTableFn, renderTableColumns as renderTableColumnsFn, renderTableRow as renderTableRowFn, renderTableCell as renderTableCellFn } from './render/table-renderer';
 import { renderNotes as renderNotesFn, renderFootnoteReference as renderFootnoteReferenceFn, renderEndnoteReference as renderEndnoteReferenceFn } from './render/notes-renderer';
 import { MathRendererCallbacks, mathJustificationToTextAlign, renderMmlMathParagraph as renderMmlMathParagraphFn, renderMmlRadical as renderMmlRadicalFn, renderMmlDelimiter as renderMmlDelimiterFn, renderMmlNary as renderMmlNaryFn, renderMmlPreSubSuper as renderMmlPreSubSuperFn, renderMmlGroupChar as renderMmlGroupCharFn, renderMmlBar as renderMmlBarFn, renderMmlRun as renderMmlRunFn, renderMllList as renderMllListFn } from './render/math-renderer';
+import { DrawingRenderContext, createKonva as createKonvaFn, renderDrawing as renderDrawingFn, renderImage as renderImageFn, renderShape as renderShapeFn, renderVmlElement as renderVmlElementFn, renderVmlPicture as renderVmlPictureFn } from './render/drawing-renderer';
 
 const ns = {
 	html: 'http://www.w3.org/1999/xhtml',
@@ -2367,212 +2365,38 @@ export class HtmlRendererSync {
 	}
 
 	async renderDrawing(elem: WmlDrawing, parent: HTMLElement) {
-		const oDrawing = createElement('span');
-
-		oDrawing.style.textIndent = '0px';
-
-		// TODO 外围添加一个元素清除浮动
-
-		// TODO 标识当前环绕方式，后期可删除
-		oDrawing.dataset.wrap = elem?.props.wrapType;
-		// 渲染style
-		this.renderStyleValues(elem.cssStyle, oDrawing);
-		// 溢出标识
-		let is_overflow: Overflow;
-		// 作为子元素插入，先执行溢出检测，方便对后代元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oDrawing);
-		if (is_overflow === Overflow.TRUE) {
-			oDrawing.dataset.overflow = Overflow.SELF;
-
-			return oDrawing;
-		}
-		// 对后代元素进行溢出检测
-		oDrawing.dataset.overflow = await this.renderChildren(elem, oDrawing);
-
-		return oDrawing;
+		return renderDrawingFn(elem, parent, this.drawingRenderContext());
 	}
 
 	// 渲染图片，默认转换blob--异步
 	async renderImage(elem: WmlImage, parent: HTMLElement) {
-		// 判断是否需要canvas转换
-		const { is_clip, is_transform } = elem.props;
-		// Image元素
-		const oImage = new Image();
-		// 渲染style样式
-		this.renderStyleValues(elem.cssStyle, oImage);
-		// TODO CMYK的图片丢失，错误转换为RGB
-		// TODO 处理emf图片格式
-		// 图片资源地址，base64/blob类型
-		const source: string = await this.document.loadDocumentImage(
-			elem.src,
-			this.currentPart
-		);
-		if (is_clip || is_transform) {
-			try {
-				// canvas转换
-				oImage.src = await this.transformImage(elem, source);
-			} catch (e) {
-				console.error(`transform ${elem.src} image error:`, e);
-			}
-		} else {
-			// 直接使用原图片
-			oImage.src = source;
-		}
-		// 作为子元素插入，执行溢出检测
-		oImage.dataset.overflow = await this.appendChildren(parent, oImage);
-
-		return oImage;
+		return renderImageFn(elem, parent, this.drawingRenderContext());
 	}
 
 	// 渲染DrawingML图形（预制几何形状，如矩形、箭头、"禁止"标记等）
 	async renderShape(elem: OpenXmlElement, parent: HTMLElement) {
-		const oContainer = createElement('span');
-		oContainer.style.position = 'relative';
-		oContainer.style.display = 'inline-block';
-		this.renderStyleValues(elem.cssStyle, oContainer);
-
-		const oSvg = createSvgElement('svg');
-		oSvg.setAttribute('viewBox', '0 0 21600 21600');
-		oSvg.setAttribute('preserveAspectRatio', 'none');
-		oSvg.style.position = 'absolute';
-		oSvg.style.inset = '0';
-		oSvg.style.width = '100%';
-		oSvg.style.height = '100%';
-		oSvg.style.overflow = 'visible';
-
-		// Word resolves unset fill/line from the shape's theme style reference
-		// (`wps:style`/`a:fillRef`/`a:lnRef`), which we don't parse. Falling back
-		// to "no fill, black outline" at least keeps the shape visible instead
-		// of disappearing (e.g. a white-on-white fill).
-		const fill: string = elem.props?.fill ?? 'none';
-		const line: { width?: string; color?: string } = elem.props?.line ?? {};
-		const strokeColor = line.color ?? '#000000';
-		const strokeWidth = line.width ? (parseFloat(line.width) || 1) : 1;
-
-		for (const d of getPresetGeometryPaths(elem.props?.preset)) {
-			const oPath = createSvgElement('path');
-			oPath.setAttribute('d', d);
-			oPath.setAttribute('fill-rule', 'evenodd');
-			oPath.setAttribute('fill', fill);
-			oPath.setAttribute('stroke', strokeColor);
-			oPath.setAttribute('stroke-width', `${strokeWidth}`);
-			// `d` is in the 21600x21600 viewBox space, so a stroke-width of e.g.
-			// "1" would render at a fraction of a pixel once scaled down to the
-			// shape's real size. non-scaling-stroke keeps it in real CSS pixels.
-			oPath.setAttribute('vector-effect', 'non-scaling-stroke');
-			oSvg.appendChild(oPath);
-		}
-
-		oContainer.appendChild(oSvg);
-		// 作为子元素插入，执行溢出检测
-		const is_overflow = await this.appendChildren(parent, oContainer);
-
-		// 形状内文本（txbx），叠加在SVG之上，使用普通CSS像素单位，不随viewBox缩放
-		if (elem.children?.length) {
-			const oText = createElement('div');
-			oText.style.position = 'relative';
-			oText.style.width = '100%';
-			oText.style.height = '100%';
-			oText.style.display = 'flex';
-			oText.style.alignItems = 'center';
-			oText.style.justifyContent = 'center';
-			oContainer.appendChild(oText);
-			await this.renderChildren(elem, oText);
-		}
-
-		oContainer.dataset.overflow = is_overflow;
-		return oContainer;
+		return renderShapeFn(elem, parent, this.drawingRenderContext());
 	}
 
 	// 生成Konva框架--元素
 	renderKonva() {
-		// 创建konva容器元素
-		const oContainer = createElement('div');
-		oContainer.id = 'konva-container';
-		// 插入页面底部
-		appendChildren(this.bodyContainer, oContainer);
-		// 创建Stage元素
-		this.konva_stage = new Konva.Stage({ container: 'konva-container' });
-		// 创建Layer元素
-		this.konva_layer = new Konva.Layer({ listening: false });
-		// 添加Stage元素
-		this.konva_stage.add(this.konva_layer);
-		// 渲染初始化，显示Stage
-		this.konva_stage.visible(true);
+		const { stage, layer } = createKonvaFn(this.bodyContainer);
+		this.konva_stage = stage;
+		this.konva_layer = layer;
 	}
 
-	// canvas画布转换，处理旋转、裁剪、翻转等情况
-	async transformImage(elem: WmlImage, source: string): Promise<string> {
-		const { is_clip, clip, is_transform, transform } = elem.props;
-		// 图片实例
-		const img = new Image();
-		// 设置图片源
-		img.src = source;
-		// 等待图片解码
-		await img.decode();
-		// 图片原始尺寸
-		const { naturalWidth, naturalHeight } = img;
-		// 设置Stage宽高
-		this.konva_stage.width(naturalWidth);
-		this.konva_stage.height(naturalHeight);
-		// 设置Layer配置
-		this.konva_layer.removeChildren();
-		// 创建Group元素
-		const group: Group = new Konva.Group();
-		// 图片加载成功后创建Image
-		const image = new Konva.Image({
-			image: img,
-			x: naturalWidth / 2,
-			y: naturalHeight / 2,
-			width: naturalWidth,
-			height: naturalHeight,
-			// 旋转中心
-			offset: {
-				x: naturalWidth / 2,
-				y: naturalHeight / 2,
-			},
-		});
-		// 计算裁剪参数
-		if (is_clip) {
-			const { left, right, top, bottom } = clip.path;
-			const x = naturalWidth * left;
-			const y = naturalHeight * top;
-			const width = naturalWidth * (1 - left - right);
-			const height = naturalHeight * (1 - top - bottom);
-			image.crop({ x, y, width, height });
-			image.size({ width, height });
-		}
-		// transform变换
-		if (is_transform) {
-			for (const key in transform) {
-				switch (key) {
-					case 'scaleX':
-						image.scaleX(transform[key]);
-						break;
-					case 'scaleY':
-						image.scaleY(transform[key]);
-						break;
-					case 'rotate':
-						image.rotation(transform[key]);
-						break;
-				}
-			}
-		}
-		// Group添加Image图片
-		group.add(image);
-		// 添加Group元素
-		this.konva_layer.add(group);
-		// 导出装换之后的图片
-		let result: string | PromiseLike<string>;
-		if (this.options.useBase64URL) {
-			result = group.toDataURL();
-		} else {
-			const blob = (await group.toBlob()) as Blob;
-			result = URL.createObjectURL(blob);
-		}
-
-
-		return result;
+	private drawingRenderContext(): DrawingRenderContext {
+		return {
+			document: this.document,
+			currentPart: this.currentPart,
+			options: this.options,
+			konvaStage: this.konva_stage,
+			konvaLayer: this.konva_layer,
+			appendChildren: (p, c) => this.appendChildren(p, c),
+			renderChildren: (e, p) => this.renderChildren(e, p),
+			renderElement: (e, p) => this.renderElement(e, p),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+		};
 	}
 
 	// 渲染书签，主要用于定位，导航
@@ -2796,55 +2620,12 @@ export class HtmlRendererSync {
 	}
 
 	async renderVmlElement(elem: VmlElement, parent?: HTMLElement): Promise<SVGElement> {
-		const oSvg = createSvgElement('svg');
-
-		oSvg.setAttribute('style', elem.cssStyleText);
-
-		const oChildren = await this.renderVmlChildElement(elem);
-
-		if (elem.imageHref?.id) {
-			const source = await this.document?.loadDocumentImage(elem.imageHref.id, this.currentPart);
-			oChildren.setAttribute('href', source);
-		}
-		// 后代元素忽略溢出检测
-		appendChildren(oSvg, oChildren);
-
-		requestAnimationFrame(() => {
-			const bb = (oSvg.firstElementChild as any).getBBox();
-
-			oSvg.setAttribute('width', `${Math.ceil(bb.x + bb.width)}`);
-			oSvg.setAttribute('height', `${Math.ceil(bb.y + bb.height)}`);
-		});
-		// 如果拥有父级
-		if (parent) {
-			// 作为子元素插入,针对此元素进行溢出检测
-			oSvg.dataset.overflow = await this.appendChildren(parent, oSvg);
-		}
-		return oSvg;
+		return renderVmlElementFn(elem, parent, this.drawingRenderContext());
 	}
 
 	// 渲染VML中图片
 	async renderVmlPicture(elem: OpenXmlElement) {
-		const oPictureContainer = createElement('span');
-		await this.renderChildren(elem, oPictureContainer);
-		return oPictureContainer;
-	}
-
-	async renderVmlChildElement(elem: VmlElement) {
-		const oVMLElement = createSvgElement(elem.tagName as any);
-		// set attributes
-		Object.entries(elem.attrs).forEach(([k, v]) => oVMLElement.setAttribute(k, v));
-
-		for (const child of elem.children) {
-			if (child.type == DomType.VmlElement) {
-				const oChild = await this.renderVmlChildElement(child as VmlElement);
-				appendChildren(oVMLElement, oChild);
-			} else {
-				await this.renderElement(child as any, oVMLElement);
-			}
-		}
-
-		return oVMLElement;
+		return renderVmlPictureFn(elem, this.drawingRenderContext());
 	}
 
 	async renderMmlRadical(elem: OpenXmlElement) {
