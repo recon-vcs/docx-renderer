@@ -28,6 +28,7 @@ import { TableContext, CellPos, CellVerticalMergeType, renderTable as renderTabl
 import { renderNotes as renderNotesFn, renderFootnoteReference as renderFootnoteReferenceFn, renderEndnoteReference as renderEndnoteReferenceFn } from './render/notes-renderer';
 import { MathRendererCallbacks, mathJustificationToTextAlign, renderMmlMathParagraph as renderMmlMathParagraphFn, renderMmlRadical as renderMmlRadicalFn, renderMmlDelimiter as renderMmlDelimiterFn, renderMmlNary as renderMmlNaryFn, renderMmlPreSubSuper as renderMmlPreSubSuperFn, renderMmlGroupChar as renderMmlGroupCharFn, renderMmlBar as renderMmlBarFn, renderMmlRun as renderMmlRunFn, renderMllList as renderMllListFn } from './render/math-renderer';
 import { DrawingRenderContext, createKonva as createKonvaFn, renderDrawing as renderDrawingFn, renderImage as renderImageFn, renderShape as renderShapeFn, renderVmlElement as renderVmlElementFn, renderVmlPicture as renderVmlPictureFn } from './render/drawing-renderer';
+import { renderHeaderFooter as renderHeaderFooterFn } from './render/header-footer-renderer';
 
 const ns = {
 	html: 'http://www.w3.org/1999/xhtml',
@@ -2598,15 +2599,10 @@ export class HtmlRendererSync {
 
 	// 渲染页眉页脚
 	async renderHeaderFooter(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, parent: HTMLElement) {
-		const oElement: HTMLElement = createElement(tagName);
-		// 插入元素，忽略溢出监测
-		appendChildren(parent, oElement);
-		// 渲染style样式
-		this.renderStyleValues(elem.cssStyle, oElement);
-		// 渲染子元素
-		await this.renderChildren(elem, oElement);
-
-		return oElement;
+		return renderHeaderFooterFn(elem, tagName, parent, {
+			renderChildren: (e, p) => this.renderChildren(e, p),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+		});
 	}
 
 	// 渲染脚注
