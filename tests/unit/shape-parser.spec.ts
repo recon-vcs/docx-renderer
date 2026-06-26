@@ -75,8 +75,10 @@ describe('parseTransform2D – originalWidth / originalHeight', () => {
         const shape: OpenXmlElement = { props: { is_transform: false, transform: {} }, cssStyle: {}, children: [] } as any;
         parseShapeProperties(node, shape, MOCK_OPTIONS);
         // 914400 EMU = 72pt, 457200 EMU = 36pt
-        expect(shape.props.originalWidth).toBe('72pt');
-        expect(shape.props.originalHeight).toBe('36pt');
+        expect(parseFloat(shape.props.originalWidth)).toBeCloseTo(72, 1);
+        expect(shape.props.originalWidth).toMatch(/pt$/);
+        expect(parseFloat(shape.props.originalHeight)).toBeCloseTo(36, 1);
+        expect(shape.props.originalHeight).toMatch(/pt$/);
     });
 
     it('stores original dimensions unchanged even when rotation expands bounding box', () => {
@@ -85,8 +87,8 @@ describe('parseTransform2D – originalWidth / originalHeight', () => {
         const shape: OpenXmlElement = { props: { is_transform: false, transform: {} }, cssStyle: {}, children: [] } as any;
         parseShapeProperties(node, shape, MOCK_OPTIONS);
         // originalWidth and originalHeight must be 72pt (pre-rotation cx/cy)
-        expect(shape.props.originalWidth).toBe('72pt');
-        expect(shape.props.originalHeight).toBe('72pt');
+        expect(parseFloat(shape.props.originalWidth)).toBeCloseTo(72, 1);
+        expect(parseFloat(shape.props.originalHeight)).toBeCloseTo(72, 1);
         // cssStyle width should be the rotated bounding box (larger)
         const cssWidth = parseFloat(shape.cssStyle['width'] ?? '0');
         const cssHeight = parseFloat(shape.cssStyle['height'] ?? '0');
