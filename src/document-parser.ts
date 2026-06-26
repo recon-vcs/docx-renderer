@@ -12,13 +12,29 @@ import { parseVmlElement } from './vml/vml';
 import { uuid } from "./utils";
 import { WmlComment, WmlCommentRangeEnd, WmlCommentRangeStart, WmlCommentReference } from './comments/elements';
 import { parseLineSpacing } from "./document/spacing-between-lines";
-
-export var autos = {
-	shd: "inherit",
-	color: "black",
-	borderColor: "black",
-	highlight: "transparent"
-};
+import { autos, xmlUtil, values } from './parser/parse-utils';
+import {
+	parseTable as parseTableFn,
+	parseTableColumns as parseTableColumnsFn,
+	parseTableProperties as parseTablePropertiesFn,
+	parseTablePosition as parseTablePositionFn,
+	parseTableRow as parseTableRowFn,
+	parseTableRowProperties as parseTableRowPropertiesFn,
+	parseTableCell as parseTableCellFn,
+	parseTableCellProperties as parseTableCellPropertiesFn,
+} from './parser/table-parser';
+import {
+	parseStylesFile as parseStylesFileFn,
+	parseDefaultStyles as parseDefaultStylesFn,
+	parseStyle as parseStyleFn,
+	parseTableStyle as parseTableStyleFn,
+} from './parser/style-parser';
+import {
+	parseNumberingFile as parseNumberingFileFn,
+	parseNumberingPicBullet as parseNumberingPicBulletFn,
+	parseAbstractNumbering as parseAbstractNumberingFn,
+	parseNumberingLevel as parseNumberingLevelFn,
+} from './parser/numbering-parser';
 
 const supportedNamespaceURIs = [
 	"http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
@@ -145,476 +161,36 @@ export class DocumentParser {
 	}
 
 	parseStylesFile(xstyles: Element): IDomStyle[] {
-		let result = [];
-
-		xmlUtil.foreach(xstyles, n => {
-			switch (n.localName) {
-				case "style":
-					result.push(this.parseStyle(n));
-					break;
-
-				case "docDefaults":
-					result.push(this.parseDefaultStyles(n));
-					break;
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Style File：${n.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		return result;
+		return parseStylesFileFn(xstyles, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
 	parseDefaultStyles(node: Element): IDomStyle {
-		let result = <IDomStyle>{
-			basedOn: null,
-			id: null,
-			name: null,
-			rulesets: [],
-			type: null
-		};
-
-		xmlUtil.foreach(node, c => {
-			switch (c.localName) {
-				case "rPrDefault":
-					let rPr = xml.element(c, "rPr");
-
-					if (rPr) {
-						result.rulesets.push({
-							target: "span",
-							declarations: this.parseDefaultProperties(rPr, {})
-						});
-					}
-					break;
-
-				case "pPrDefault":
-					let pPr = xml.element(c, "pPr");
-
-					if (pPr) {
-						let paragraphProperties = parseParagraphProperties(pPr, xml);
-						let ruleset = {
-							target: "p",
-							declarations: this.parseDefaultProperties(pPr, {})
-						}
-						// line spacing
-						Object.assign(ruleset.declarations, parseLineSpacing(paragraphProperties));
-						result.rulesets.push(ruleset);
-					}
-					break;
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Default Style：${c.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		return result;
+		return parseDefaultStylesFn(node, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
 	parseStyle(node: Element): IDomStyle {
-		let result: IDomStyle = <IDomStyle>{
-			basedOn: null,
-			id: null,
-			name: null,
-			rulesets: [],
-			type: null,
-		};
-		for (const attr of xml.attrs(node)) {
-			switch (attr.localName) {
-				// User-Defined Style
-				case "customStyle":
-					result.customStyle = xml.boolAttr(node, "customStyle", false);
-					break;
-
-				// Default Style
-				case "default":
-					result.isDefault = xml.boolAttr(node, "default", false);
-					break;
-
-				// Style ID
-				case "styleId":
-					result.id = xml.attr(node, "styleId");
-					break;
-
-				// Style Type
-				case "type":
-					result.type = xml.attr(node, "type");
-					const typeToLabelMap = {
-						"paragraph": "p",
-						"table": "table",
-						"character": "span",
-						"numbering": "p",
-					};
-					// 检查result.type是否在映射中
-					if (typeToLabelMap.hasOwnProperty(result.type)) {
-						result.label = typeToLabelMap[result.type];
-					} else {
-						// 未知类型处理，确保在options.debug为false时也能处理
-						if (this.options && this.options.debug) {
-							console.warn(`DOCX:%c Unknown Style Type：${result.type}`, 'color:#f75607');
-						}
-					}
-					break;
-
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Style Property：${attr.localName}`, 'color:#f75607');
-					}
-			}
-		}
-
-		xmlUtil.foreach(node, n => {
-			switch (n.localName) {
-				// Alternate Style Names
-				case "aliases":
-					result.aliases = xml.attr(n, "val").split(",");
-					break;
-
-				// Automatically Merge User Formatting Into Style Definition.
-				// that change is stored on the style and therefore propagated to all locations where the style is in use.
-				case "autoRedefine":
-					result.autoRedefine = true;
-					break;
-
-				// Parent Style ID
-				case "basedOn":
-					result.basedOn = xml.attr(n, "val");
-					break;
-
-				// Hide Style From User Interface
-				case "hidden":
-					result.hidden = true;
-					break;
-
-				// Linked Style Reference
-				case "link":
-					result.linked = xml.attr(n, "val");
-					break;
-
-				// Style Cannot Be Applied
-				case "locked":
-					result.locked = true;
-					break;
-
-				// Primary Style Name
-				case "name":
-					result.name = xml.attr(n, "val");
-					break;
-
-				// Style For Next Paragraph
-				case "next":
-					result.next = xml.attr(n, "val");
-					break;
-
-				// E-Mail Message Text Style
-				case "personal":
-					result.personal = xml.boolAttr(n, "val");
-					break;
-
-				// E-Mail Message Composition Style
-				case "personalCompose":
-					result.personalCompose = xml.boolAttr(n, "val");
-					break;
-
-				// E-Mail Message Reply Style
-				case "personalReply":
-					result.personalReply = xml.boolAttr(n, "val");
-					break;
-
-				// Style Paragraph Properties
-				case "pPr":
-					result.paragraphProps = parseParagraphProperties(n, xml);
-					let ruleset = {
-						target: "p",
-						declarations: this.parseDefaultProperties(n, {})
-					}
-					// line spacing
-					Object.assign(ruleset.declarations, parseLineSpacing(result.paragraphProps));
-					result.rulesets.push(ruleset);
-					break;
-
-				// Specifies Primary Style
-				case "qFormat":
-					result.primaryStyle = true;
-					break;
-
-				// Run Properties
-				case "rPr":
-					result.rulesets.push({
-						target: "span",
-						declarations: this.parseDefaultProperties(n, {})
-					});
-					result.runProps = parseRunProperties(n, xml);
-					break;
-
-				// Revision Identifier for Style Definition.Single Session Revision Save ID.
-				case "rsid":
-					result.rsid = xml.hexAttr(n, "val");
-					break;
-
-				// 	Hide Style From Main User Interface.
-				// 	This setting is intended to define a style property which allows styles to be seen and modified in an advanced user interface, without exposing the style in a less advanced setting
-				case "semiHidden":
-					result.semiHidden = true;
-					break;
-
-				// Style Table Properties
-				case "tblPr":
-					result.rulesets.push({
-						target: "td",
-						declarations: this.parseDefaultProperties(n, {})
-					});
-					break;
-
-				// Style Table Row Properties
-				case "trPr":
-					//TODO: maybe move to processor
-					result.rulesets.push({
-						target: "tr",
-						declarations: this.parseDefaultProperties(n, {})
-					});
-					break;
-
-				// Style Table Cell Properties
-				case "tcPr":
-					result.rulesets.push({
-						target: "td",
-						declarations: this.parseDefaultProperties(n, {})
-					});
-					break;
-
-				// Style Conditional Table Formatting Properties
-				case "tblStylePr":
-					for (let s of this.parseTableStyle(n)) {
-						result.rulesets.push(s);
-					}
-					break;
-
-				// Optional User Interface Sorting Order
-				// This element specifies a number which can be used to sort the set of style definitions in a user interface when this document is loaded by an application
-				// If this element is omitted, then the style shall have more or less an Infinity value and shall be sorted to the end of the list of style definitions
-				case "uiPriority":
-					result.uiPriority = xml.intAttr(n, "val", Infinity);
-					break;
-
-				// 	Remove Semi-Hidden Property When Style Is Used
-				case "unhideWhenUsed":
-					result.unhideWhenUsed = true;
-					break;
-
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Style element：${n.localName}`, 'color:blue');
-					}
-			}
-		});
-
-		return result;
+		return parseStyleFn(node, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
-	// TODO 多层嵌套表格style样式规则未生效
+	// TODO: multi-level nested table style rules are not yet applied
 	parseTableStyle(node: Element): Ruleset[] {
-		let result: Ruleset[] = [];
-
-		let type = xml.attr(node, "type");
-		let selector = "";
-		let modifier = "";
-
-		switch (type) {
-			case "firstRow":
-				modifier = ".first-row";
-				selector = "tr.first-row td";
-				break;
-			case "lastRow":
-				modifier = ".last-row";
-				selector = "tr.last-row td";
-				break;
-			case "firstCol":
-				modifier = ".first-col";
-				selector = "td.first-col";
-				break;
-			case "lastCol":
-				modifier = ".last-col";
-				selector = "td.last-col";
-				break;
-			case "band1Vert":
-				modifier = ":not(.no-vband)";
-				selector = "td.odd-col";
-				break;
-			case "band2Vert":
-				modifier = ":not(.no-vband)";
-				selector = "td.even-col";
-				break;
-			case "band1Horz":
-				modifier = ":not(.no-hband)";
-				selector = "tr.odd-row";
-				break;
-			case "band2Horz":
-				modifier = ":not(.no-hband)";
-				selector = "tr.even-row";
-				break;
-			default:
-				return [];
-		}
-
-		xmlUtil.foreach(node, n => {
-			switch (n.localName) {
-				case "pPr":
-					let paragraphProperties = parseParagraphProperties(n, xml);
-					let ruleset = {
-						target: `${selector} p`,
-						modifier: modifier,
-						declarations: this.parseDefaultProperties(n, {})
-					}
-					// line spacing
-					Object.assign(ruleset.declarations, parseLineSpacing(paragraphProperties));
-					result.push(ruleset);
-					break;
-
-				case "rPr":
-					result.push({
-						target: `${selector} span`,
-						modifier: modifier,
-						declarations: this.parseDefaultProperties(n, {})
-					});
-					break;
-
-				case "tblPr":
-				case "tcPr":
-					result.push({
-						target: selector, //TODO: maybe move to processor
-						modifier: modifier,
-						declarations: this.parseDefaultProperties(n, {})
-					});
-					break;
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Table Style：${n.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		return result;
+		return parseTableStyleFn(node, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
 	parseNumberingFile(xnums: Element): IDomNumbering[] {
-		let result = [];
-		const mapping = {};
-		let bullets = [];
-
-		xmlUtil.foreach(xnums, n => {
-			switch (n.localName) {
-				case "abstractNum":
-					this.parseAbstractNumbering(n, bullets)
-						.forEach(x => result.push(x));
-					break;
-
-				case "numPicBullet":
-					bullets.push(this.parseNumberingPicBullet(n));
-					break;
-
-				case "num":
-					let numId = xml.attr(n, "numId");
-					let abstractNumId = xml.elementAttr(n, "abstractNumId", "val");
-					mapping[abstractNumId] = numId;
-					break;
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Numbering File：${n.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		result.forEach(x => x.id = mapping[x.id]);
-
-		return result;
+		return parseNumberingFileFn(xnums, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
 	parseNumberingPicBullet(elem: Element): NumberingPicBullet {
-		let pict = xml.element(elem, "pict");
-		let shape = pict && xml.element(pict, "shape");
-		let imagedata = shape && xml.element(shape, "imagedata");
-
-		return imagedata ? {
-			id: xml.intAttr(elem, "numPicBulletId"),
-			src: xml.attr(imagedata, "id"),
-			style: xml.attr(shape, "style")
-		} : null;
+		return parseNumberingPicBulletFn(elem);
 	}
 
 	parseAbstractNumbering(node: Element, bullets: any[]): IDomNumbering[] {
-		let result = [];
-		let id = xml.attr(node, "abstractNumId");
-
-		xmlUtil.foreach(node, n => {
-			switch (n.localName) {
-				case "lvl":
-					result.push(this.parseNumberingLevel(id, n, bullets));
-					break;
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Abstract Numbering：${n.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		return result;
+		return parseAbstractNumberingFn(node, bullets, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
 	parseNumberingLevel(id: string, node: Element, bullets: any[]): IDomNumbering {
-		let result: IDomNumbering = {
-			id: id,
-			level: xml.intAttr(node, "ilvl"),
-			start: 1,
-			pStyleName: undefined,
-			pStyle: {},
-			rStyle: {},
-			suff: "tab"
-		};
-
-		xmlUtil.foreach(node, n => {
-			switch (n.localName) {
-				case "start":
-					result.start = xml.intAttr(n, "val");
-					break;
-
-				case "pPr":
-					this.parseDefaultProperties(n, result.pStyle);
-					break;
-
-				case "rPr":
-					this.parseDefaultProperties(n, result.rStyle);
-					break;
-
-				case "lvlPicBulletId":
-					let id = xml.intAttr(n, "val");
-					result.bullet = bullets.find(x => x?.id == id);
-					break;
-
-				case "lvlText":
-					result.levelText = xml.attr(n, "val");
-					break;
-
-				case "pStyle":
-					result.pStyleName = xml.attr(n, "val");
-					break;
-
-				case "numFmt":
-					result.format = xml.attr(n, "val");
-					break;
-
-				case "suff":
-					result.suff = xml.attr(n, "val");
-					break;
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Numbering Level：${n.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		return result;
+		return parseNumberingLevelFn(id, node, bullets, this.options, { parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h) });
 	}
 
 	parseSdt(node: Element): OpenXmlElement[] {
@@ -1905,218 +1481,59 @@ export class DocumentParser {
 	}
 
 	parseTable(node: Element): WmlTable {
-		let result: WmlTable = { type: DomType.Table, children: [] };
-
-		xmlUtil.foreach(node, c => {
-			switch (c.localName) {
-				case "tblPr":
-					this.parseTableProperties(c, result);
-					break;
-
-				case "tblGrid":
-					result.columns = this.parseTableColumns(c);
-					break;
-
-				case "tr":
-					result.children.push(this.parseTableRow(c));
-					break;
-
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Table Element：${c.localName}`, 'color:#f75607');
-					}
-			}
+		return parseTableFn(node, this.options, {
+			parseParagraph: n => this.parseParagraph(n),
+			parseTable: n => this.parseTable(n),
+			parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h),
 		});
-
-		return result;
 	}
 
 	parseTableColumns(node: Element): WmlTableColumn[] {
-		let result = [];
-
-		xmlUtil.foreach(node, n => {
-			switch (n.localName) {
-				case "gridCol":
-					result.push({ width: xml.lengthAttr(n, "w") });
-					break;
-
-				// TODO 网格修订信息
-				case "tblGridChange":
-					break;
-
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Table Columns Element：${n.localName}`, 'color:#f75607');
-					}
-			}
-		});
-
-		return result;
+		return parseTableColumnsFn(node, this.options);
 	}
 
-	parseTableProperties(elem: Element, table: WmlTable) {
-		table.cssStyle = {};
-		table.cellStyle = {};
-
-		this.parseDefaultProperties(elem, table.cssStyle, table.cellStyle, c => {
-			switch (c.localName) {
-				case "tblStyle":
-					table.styleName = xml.attr(c, "val");
-					break;
-
-				case "tblLook":
-					table.className = values.classNameOftblLook(c);
-					break;
-
-				case "tblpPr":
-					// 浮动表格位置
-					this.parseTablePosition(c, table);
-					break;
-
-				case "tblStyleColBandSize":
-					table.colBandSize = xml.intAttr(c, "val");
-					break;
-
-				case "tblStyleRowBandSize":
-					table.rowBandSize = xml.intAttr(c, "val");
-					break;
-
-				default:
-					// pass other properties to parseDefaultProperties function
-					return false;
-			}
-
-			return true;
+	parseTableProperties(elem: Element, table: WmlTable): void {
+		parseTablePropertiesFn(elem, table, this.options, {
+			parseParagraph: n => this.parseParagraph(n),
+			parseTable: n => this.parseTable(n),
+			parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h),
 		});
-
-		switch (table.cssStyle["text-align"]) {
-			case "center":
-				delete table.cssStyle["text-align"];
-				table.cssStyle["margin-left"] = "auto";
-				table.cssStyle["margin-right"] = "auto";
-				break;
-
-			case "right":
-				delete table.cssStyle["text-align"];
-				table.cssStyle["margin-left"] = "auto";
-				break;
-
-			default:
-				if (this.options.debug) {
-					console.warn(`DOCX:%c Unknown Table Align：${table.cssStyle["text-align"]}`, 'color:#f75607');
-				}
-		}
 	}
 
-	// 浮动表格，实现文字环绕
-	parseTablePosition(node: Element, table: WmlTable) {
-		// 由于浮动，导致后续元素错乱，默认忽略。
-		if (this.options.ignoreTableWrap) {
-			return false;
-		}
-		let topFromText = xml.lengthAttr(node, "topFromText");
-		let bottomFromText = xml.lengthAttr(node, "bottomFromText");
-		let rightFromText = xml.lengthAttr(node, "rightFromText");
-		let leftFromText = xml.lengthAttr(node, "leftFromText");
-
-		table.cssStyle["float"] = 'left';
-		table.cssStyle["margin-bottom"] = values.addSize(table.cssStyle["margin-bottom"], bottomFromText);
-		table.cssStyle["margin-left"] = values.addSize(table.cssStyle["margin-left"], leftFromText);
-		table.cssStyle["margin-right"] = values.addSize(table.cssStyle["margin-right"], rightFromText);
-		table.cssStyle["margin-top"] = values.addSize(table.cssStyle["margin-top"], topFromText);
+	// Floating table — implements text wrap around table
+	parseTablePosition(node: Element, table: WmlTable): void {
+		parseTablePositionFn(node, table, this.options);
 	}
 
 	parseTableRow(node: Element): WmlTableRow {
-		let result: WmlTableRow = { type: DomType.Row, children: [] };
-
-		xmlUtil.foreach(node, c => {
-			switch (c.localName) {
-				case "tc":
-					result.children.push(this.parseTableCell(c));
-					break;
-
-				case "trPr":
-					this.parseTableRowProperties(c, result);
-					break;
-
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Table Row Element：${c.localName}`, 'color:#f75607');
-					}
-			}
+		return parseTableRowFn(node, this.options, {
+			parseParagraph: n => this.parseParagraph(n),
+			parseTable: n => this.parseTable(n),
+			parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h),
 		});
-
-		return result;
 	}
 
-	parseTableRowProperties(elem: Element, row: WmlTableRow) {
-		row.cssStyle = this.parseDefaultProperties(elem, {}, null, c => {
-			switch (c.localName) {
-				case "cnfStyle":
-					row.className = values.classNameOfCnfStyle(c);
-					break;
-				// Repeat Table Row on Every New Page,boolean attribute
-				case "tblHeader":
-					row.isHeader = xml.boolAttr(c, "val", true);
-					break;
-
-				default:
-					// pass other properties to parseDefaultProperties function
-					return false;
-			}
-
-			return true;
+	parseTableRowProperties(elem: Element, row: WmlTableRow): void {
+		parseTableRowPropertiesFn(elem, row, this.options, {
+			parseParagraph: n => this.parseParagraph(n),
+			parseTable: n => this.parseTable(n),
+			parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h),
 		});
 	}
 
 	parseTableCell(node: Element): OpenXmlElement {
-		let result: WmlTableCell = { type: DomType.Cell, children: [] };
-
-		xmlUtil.foreach(node, c => {
-			switch (c.localName) {
-				case "tbl":
-					result.children.push(this.parseTable(c));
-					break;
-
-				case "p":
-					result.children.push(this.parseParagraph(c));
-					break;
-
-				case "tcPr":
-					this.parseTableCellProperties(c, result);
-					break;
-
-				default:
-					if (this.options.debug) {
-						console.warn(`DOCX:%c Unknown Table Cell Element：${c.localName}`, 'color:#f75607');
-					}
-			}
+		return parseTableCellFn(node, this.options, {
+			parseParagraph: n => this.parseParagraph(n),
+			parseTable: n => this.parseTable(n),
+			parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h),
 		});
-
-		return result;
 	}
 
-	parseTableCellProperties(elem: Element, cell: WmlTableCell) {
-		cell.cssStyle = this.parseDefaultProperties(elem, {}, null, c => {
-			switch (c.localName) {
-				case "gridSpan":
-					cell.span = xml.intAttr(c, "val", null);
-					break;
-
-				case "vMerge":
-					cell.verticalMerge = xml.attr(c, "val") ?? "continue";
-					break;
-
-				case "cnfStyle":
-					cell.className = values.classNameOfCnfStyle(c);
-					break;
-
-				default:
-					// pass other properties to parseDefaultProperties function
-					return false;
-			}
-
-			return true;
+	parseTableCellProperties(elem: Element, cell: WmlTableCell): void {
+		parseTableCellPropertiesFn(elem, cell, this.options, {
+			parseParagraph: n => this.parseParagraph(n),
+			parseTable: n => this.parseTable(n),
+			parseDefaultProperties: (e, s, c, h) => this.parseDefaultProperties(e, s, c, h),
 		});
 	}
 
@@ -2650,171 +2067,3 @@ export class DocumentParser {
 	}
 }
 
-const knownColors = ['black', 'blue', 'cyan', 'darkBlue', 'darkCyan', 'darkGray', 'darkGreen', 'darkMagenta', 'darkRed', 'darkYellow', 'green', 'lightGray', 'magenta', 'none', 'red', 'white', 'yellow'];
-
-class xmlUtil {
-	static foreach(node: Element, callback: (n: Element, i: number) => void) {
-		for (let i = 0; i < node.children.length; i++) {
-			let n = node.children[i];
-
-			if (n.nodeType == Node.ELEMENT_NODE) {
-				callback(n, i);
-			}
-		}
-	}
-
-	static colorAttr(node: Element, attrName: string, defValue: string = null, autoColor: string = 'black') {
-		let v = xml.attr(node, attrName);
-
-		if (v) {
-			if (v == "auto") {
-				return autoColor;
-			} else if (knownColors.includes(v)) {
-				return v;
-			}
-
-			return `#${v}`;
-		}
-
-		let themeColor = xml.attr(node, "themeColor");
-
-		return themeColor ? `var(--docx-${themeColor}-color)` : defValue;
-	}
-
-	static sizeValue(node: Element, type: LengthUsageType = LengthUsage.Dxa): string {
-		return convertLength(node.textContent, type) as string;
-	}
-
-	static parseTextContent(node: Element, defaultValue: number = 0): number {
-		let textContent: string = node.textContent;
-		return textContent ? parseInt(textContent) : defaultValue;
-	}
-}
-
-// TODO 此处方法存在重复，XmlParser Class 中已存在类似的方法，需要统一
-class values {
-	static themeValue(c: Element, attr: string) {
-		let val = xml.attr(c, attr);
-		return val ? `var(--docx-${val}-font)` : null;
-	}
-
-	static valueOfSize(c: Element, attr: string) {
-		let type = LengthUsage.Dxa;
-
-		switch (xml.attr(c, "type")) {
-			case "dxa":
-				break;
-			case "pct":
-				type = LengthUsage.TablePercent;
-				break;
-			case "auto":
-				return "auto";
-		}
-
-		return xml.lengthAttr(c, attr, type);
-	}
-
-	static valueOfMargin(c: Element) {
-		return xml.lengthAttr(c, "w");
-	}
-
-	static valueOfBorder(c: Element) {
-		let type = xml.attr(c, "val");
-
-		if (type == "nil") {
-			return "none";
-		}
-
-		let color = xmlUtil.colorAttr(c, "color");
-		let size = xml.lengthAttr(c, "sz", LengthUsage.Border);
-
-		return `${size} solid ${color == "auto" ? autos.borderColor : color}`;
-	}
-
-	static valueOfTblLayout(c: Element) {
-		let type = xml.attr(c, "type");
-		return type == "fixed" ? "fixed" : "auto";
-	}
-
-	static classNameOfCnfStyle(c: Element) {
-		const val = xml.attr(c, "val");
-		const classes = [
-			'first-row', 'last-row', 'first-col', 'last-col',
-			'odd-col', 'even-col', 'odd-row', 'even-row',
-			'ne-cell', 'nw-cell', 'se-cell', 'sw-cell'
-		];
-
-		return classes.filter((_, i) => val[i] == '1').join(' ');
-	}
-
-	static valueOfJc(c: Element) {
-		let type = xml.attr(c, "val");
-
-		switch (type) {
-			case "start":
-			case "left":
-				return "left";
-			case "center":
-				return "center";
-			case "end":
-			case "right":
-				return "right";
-			case "both":
-				return "justify";
-		}
-
-		return type;
-	}
-
-	static valueOfVertAlign(c: Element, asTagName: boolean = false) {
-		let type = xml.attr(c, "val");
-
-		switch (type) {
-			case "subscript":
-				return "sub";
-			case "superscript":
-				return asTagName ? "sup" : "super";
-		}
-
-		return asTagName ? null : type;
-	}
-
-	static valueOfTextAlignment(c: Element) {
-		let type = xml.attr(c, "val");
-
-		switch (type) {
-			case "auto":
-			case "baseline":
-				return "baseline";
-			case "top":
-				return "top";
-			case "center":
-				return "middle";
-			case "bottom":
-				return "bottom";
-		}
-
-		return type;
-	}
-
-	static addSize(a: string, b: string): string {
-		if (a == null) return b;
-		if (b == null) return a;
-
-		return `calc(${a} + ${b})`; //TODO
-	}
-
-	static classNameOftblLook(c: Element) {
-		const val = xml.hexAttr(c, "val", 0);
-		let className = "";
-
-		if (xml.boolAttr(c, "firstRow") || (val & 0x0020)) className += " first-row";
-		if (xml.boolAttr(c, "lastRow") || (val & 0x0040)) className += " last-row";
-		if (xml.boolAttr(c, "firstColumn") || (val & 0x0080)) className += " first-col";
-		if (xml.boolAttr(c, "lastColumn") || (val & 0x0100)) className += " last-col";
-		if (xml.boolAttr(c, "noHBand") || (val & 0x0200)) className += " no-hband";
-		if (xml.boolAttr(c, "noVBand") || (val & 0x0400)) className += " no-vband";
-
-		return className.trim();
-	}
-}

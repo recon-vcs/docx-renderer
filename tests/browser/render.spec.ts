@@ -64,3 +64,48 @@ test.describe('renderSync smoke', () => {
 		});
 	}
 });
+
+const SECTION_SMOKE_CASES = [
+	'section-break',
+	'columns',
+	'column-break',
+	'footer-with-section',
+	'header-section',
+	'break-page-section-break',
+] as const;
+
+test.describe('section and break smoke', () => {
+	for (const name of SECTION_SMOKE_CASES) {
+		test(`renders ${name} without errors`, async ({ page }) => {
+			const pageErrors: Error[] = [];
+			page.on('pageerror', (error) => pageErrors.push(error));
+
+			const html = await renderInPage(page, name);
+
+			expect(pageErrors).toEqual([]);
+			expect(html.length).toBeGreaterThan(0);
+			expect(html).toContain('docx-wrapper');
+		});
+	}
+
+	test('section-break renders at least one page', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'section-break');
+
+		expect(pageErrors).toEqual([]);
+		const count = await page.locator('.section.docx').count();
+		expect(count).toBeGreaterThanOrEqual(1);
+	});
+
+	test('columns renders multi-column content', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		const html = await renderInPage(page, 'columns');
+
+		expect(pageErrors).toEqual([]);
+		expect(html).toMatch(/column-count|columns:/);
+	});
+});

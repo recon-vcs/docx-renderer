@@ -255,12 +255,12 @@ export function parseSectionProperties(elem: Element, xml: XmlParser = globalXml
 				break;
 		}
 	}
-	// 根据原始尺寸，计算内容区域的宽高
-	let { width, height } = origin.pageSize;
-	let { left, right, top, bottom } = origin.pageMargins;
-	// contentSize = pageSize - pageMargins,but it's also affected by header/footer.
-	// finally,the actual contentSize should be calculated again when the header/footer DOM is rendered.
-	section.contentSize.width = convertLength(width - left - right) as string;
+	// Compute content width from page size minus horizontal margins when both are present.
+	if (origin.pageSize && origin.pageMargins) {
+		const { width } = origin.pageSize;
+		const { left, right } = origin.pageMargins;
+		section.contentSize.width = convertLength(width - left - right) as string;
+	}
 
 	return section;
 }
