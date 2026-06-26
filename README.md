@@ -45,7 +45,8 @@ const body = document.getElementById("document-container");
 const style = document.getElementById("style-container");
 
 // Parses the document and renders paginated HTML into `body`.
-const wordDocument = await renderSync(blob, body, style, { breakPages: true });
+const result = await renderSync(blob, body, style, { breakPages: true });
+// Call result.overlay.dispose() when done to release observers.
 ```
 
 ### Browser global (UMD)
@@ -68,9 +69,8 @@ is then available as the global `docx`:
 | Function | Description |
 | --- | --- |
 | `parseAsync(data, options?)` | Parses a docx file (`Blob`, `ArrayBuffer` or `Uint8Array`) into a `WordDocument` model without rendering. |
-| `renderSync(data, body, style?, options?)` | Parses and renders with the synchronous, pagination-aware renderer. Returns the parsed `WordDocument`. |
-| `renderAsync(data, body, style?, options?)` | Parses and renders with the legacy asynchronous renderer inherited from docx-preview. |
-| `renderDocument(doc, body, style?, sync?, options?)` | Renders an already-parsed `WordDocument`. |
+| `renderSync(data, body, style?, options?)` | Parses and renders with the synchronous, pagination-aware renderer. Returns a `RenderResult`. |
+| `renderDocument(doc, body, style?, options?)` | Renders an already-parsed `WordDocument`. Returns a `RenderResult`. |
 | `defaultOptions` | The default `Options` values. |
 
 See the `Options` interface in `src/docx-preview.ts` for all rendering flags

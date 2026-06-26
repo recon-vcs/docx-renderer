@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Length } from '../../src/length';
+import { Length } from '../../src/shared/measurement/length';
 
 describe('Length', () => {
 	it('parses a pt value', () => {

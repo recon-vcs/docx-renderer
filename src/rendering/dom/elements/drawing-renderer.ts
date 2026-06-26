@@ -37,10 +37,11 @@ async function waitForImageDecode(image: HTMLImageElement): Promise<void> {
 
 export function createKonva(bodyContainer: HTMLElement): { stage: Stage; layer: Layer } {
 	const oContainer = createElement('div');
-	oContainer.id = 'konva-container';
+	const containerId = `konva-container-${Math.random().toString(36).slice(2)}`;
+	oContainer.id = containerId;
 	appendChildren(bodyContainer, oContainer);
 
-	const stage = new Konva.Stage({ container: 'konva-container' });
+	const stage = new Konva.Stage({ container: containerId });
 	const layer = new Konva.Layer({ listening: false });
 	stage.add(layer);
 	stage.visible(true);

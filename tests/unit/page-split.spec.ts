@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DomType, OpenXmlElement } from '../../src/document/dom';
-import { Page } from '../../src/document/page';
-import { SectionProperties } from '../../src/document/section';
-import { LayoutRegion } from '../../src/layout/layout-region';
-import { splitRegionOnOverflow } from '../../src/layout/page-split';
+import { DomType, OpenXmlElement } from '../../src/ooxml/wordprocessingml/document/model/dom';
+import { Page } from '../../src/ooxml/wordprocessingml/document/model/page';
+import { SectionProperties } from '../../src/ooxml/wordprocessingml/document/model/section';
+import { LayoutRegion } from '../../src/rendering/pagination/model/layout-region';
+import { splitRegionOnOverflow } from '../../src/rendering/pagination/model/page-split';
 
 function section(sectionId: string): SectionProperties {
 	return { sectionId } as SectionProperties;

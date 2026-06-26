@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SectionProperties } from '../../src/document/section';
-import { buildPhysicalPages } from '../../src/layout/page-builder';
-import { LayoutRegion, RegionBreakBefore } from '../../src/layout/layout-region';
+import { SectionProperties } from '../../src/ooxml/wordprocessingml/document/model/section';
+import { buildPhysicalPages } from '../../src/rendering/pagination/core/page-builder';
+import { LayoutRegion, RegionBreakBefore } from '../../src/rendering/pagination/model/layout-region';
 
 function makeSection(sectionId?: string): SectionProperties {
 	return { sectionId } as SectionProperties;

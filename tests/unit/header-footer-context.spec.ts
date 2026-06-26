@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	resolveHeaderFooterReferences,
 	selectHeaderFooterReference,
-} from '../../src/layout/header-footer-context';
+} from '../../src/rendering/pagination/context/header-footer-context';
 
 interface TestRef {
 	id: string;

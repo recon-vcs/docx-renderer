@@ -4,7 +4,7 @@ import {
 	needsParityBlankPage,
 	normalizeRegionBreakBefore,
 	pageMatchesParity,
-} from '../../src/layout/breaks';
+} from '../../src/rendering/pagination/model/breaks';
 
 describe('layout break interpretation', () => {
 	it('normalizes missing break values to none', () => {

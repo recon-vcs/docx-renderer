@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BreakType, DomType, OpenXmlElement } from '../../src/model/element';
-import { SectionProperties } from '../../src/document/section';
-import { LayoutRegion } from '../../src/layout/layout-region';
-import { splitRegionsByExplicitBreaks } from '../../src/layout/explicit-breaks';
+import { BreakType, DomType, OpenXmlElement } from '../../src/ooxml/wordprocessingml/model/element';
+import { SectionProperties } from '../../src/ooxml/wordprocessingml/document/model/section';
+import { LayoutRegion } from '../../src/rendering/pagination/model/layout-region';
+import { splitRegionsByExplicitBreaks } from '../../src/rendering/pagination/model/explicit-breaks';
 
 function paragraph(children: OpenXmlElement[] = []): OpenXmlElement {
 	return { type: DomType.Paragraph, children };

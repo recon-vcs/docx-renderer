@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOverflowing } from '../../src/measure/overflow-measurer';
+import { isOverflowing } from '../../src/rendering/measurement/overflow-measurer';
 
 describe('isOverflowing', () => {
 	it('returns false when scroll height fits client height', () => {

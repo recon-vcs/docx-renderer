@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSectionProperties, SectionType } from '../../src/document/section';
+import { parseSectionProperties, SectionType } from '../../src/ooxml/wordprocessingml/document/model/section';
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';

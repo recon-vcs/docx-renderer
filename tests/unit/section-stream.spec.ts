@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildSectionStream } from '../../src/layout/section-stream';
-import { DomType, OpenXmlElement } from '../../src/model/element';
-import { SectionProperties, SectionType } from '../../src/document/section';
+import { buildSectionStream } from '../../src/rendering/pagination/model/section-stream';
+import { DomType, OpenXmlElement } from '../../src/ooxml/wordprocessingml/model/element';
+import { SectionProperties, SectionType } from '../../src/ooxml/wordprocessingml/document/model/section';
 
 // ---------------------------------------------------------------------------
 // Helper factories

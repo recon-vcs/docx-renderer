@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BreakType, DomType, OpenXmlElement } from '../../src/model/element';
-import { SectionProperties, SectionType } from '../../src/document/section';
-import { buildPaginationPlan } from '../../src/layout/pagination';
+import { BreakType, DomType, OpenXmlElement } from '../../src/ooxml/wordprocessingml/model/element';
+import { SectionProperties, SectionType } from '../../src/ooxml/wordprocessingml/document/model/section';
+import { buildPaginationPlan } from '../../src/rendering/pagination/core/pagination';
 
 function section(sectionId: string, type?: SectionType): SectionProperties {
 	return { sectionId, type } as SectionProperties;

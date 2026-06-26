@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { DocumentElement } from '../../src/document/document';
-import { Columns, SectionProperties, SectionType } from '../../src/document/section';
-import { splitDocumentIntoPhysicalPages } from '../../src/layout/modern-page-splitter';
-import { BreakType, DomType, OpenXmlElement } from '../../src/model/element';
+import { DocumentElement } from '../../src/ooxml/wordprocessingml/document/model/document';
+import { Columns, SectionProperties, SectionType } from '../../src/ooxml/wordprocessingml/document/model/section';
+import { splitDocumentIntoPhysicalPages } from '../../src/rendering/pagination/core/modern-page-splitter';
+import { BreakType, DomType, OpenXmlElement } from '../../src/ooxml/wordprocessingml/model/element';
 
 function section(sectionId: string, type?: SectionType, columnCount?: number): SectionProperties {
 	return {
