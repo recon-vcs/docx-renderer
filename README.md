@@ -8,9 +8,9 @@ preview engine of the [Recon](https://github.com/recon-vcs) project and is being
 evolved into a standalone, publishable npm library.
 
 > **Status: 0.x — the public API may still change.** `renderSync` and
-> `renderDocument` currently return a structured `RenderResult` with page
-> handles, source maps, overlays, and an explicit `dispose()` lifecycle.
-> Pin an exact version if you depend on the current shape.
+> `renderDocument` return a `RenderResult` with `document`, `pages`,
+> `sourceMap`, `overlay`, and `dispose()`. Pin an exact version if you depend
+> on the current shape.
 
 ## Origin and credits
 
@@ -67,15 +67,25 @@ is then available as the global `docx`:
 
 ### API
 
-| Function | Description |
+| Export | Description |
 | --- | --- |
 | `parseAsync(data, options?)` | Parses a docx file (`Blob`, `ArrayBuffer` or `Uint8Array`) into a `WordDocument` model without rendering. |
-| `renderSync(data, body, style?, options?)` | Parses and renders with the synchronous, pagination-aware renderer. Returns a `RenderResult`. |
+| `renderSync(data, body, style?, options?)` | Parses and renders a docx file. Returns a `RenderResult`. |
 | `renderDocument(doc, body, style?, options?)` | Renders an already-parsed `WordDocument`. Returns a `RenderResult`. |
 | `defaultOptions` | The default `Options` values. |
+| `resolveOptions(partial?)` | Merges user options with `defaultOptions`. |
 
-See the `Options` interface in `src/docx-preview.ts` for all rendering flags
-(page breaking, header/footer/footnote rendering, experimental tab stops, ...).
+#### RenderResult
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `document` | `WordDocument` | The parsed document model. |
+| `pages` | `PageHandle[]` | One entry per rendered page (`index`, `element`, `blockPaths`). |
+| `sourceMap` | `SourceMap` | Bidirectional mapping between block paths and DOM elements. |
+| `overlay` | `OverlayLayer` | Overlay system for attaching positioned UI over page elements. |
+| `dispose()` | `() => void` | Disconnects observers and cleans up overlay state. |
+
+See `src/options.ts` for all `Options` flags (page breaking, header/footer/footnote rendering, ...).
 
 ## Demo
 
