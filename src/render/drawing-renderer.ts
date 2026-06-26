@@ -56,6 +56,7 @@ export async function renderDrawing(
 	const oDrawing = createElement('span');
 	oDrawing.classList.add(`${ctx.className}-drawing`);
 	oDrawing.style.textIndent = '0px';
+	oDrawing.style.display = 'inline-block';
 	oDrawing.dataset.wrap = elem?.props.wrapType;
 	ctx.renderStyleValues(elem.cssStyle, oDrawing);
 

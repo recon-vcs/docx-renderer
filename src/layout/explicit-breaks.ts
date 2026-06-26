@@ -67,6 +67,18 @@ export function splitRegionsByExplicitBreaks(regions: LayoutRegion[]): LayoutReg
 			const child = region.children[i];
 			const scan = scanElementBreaks(child, [i]);
 
+			// A lastRenderedPageBreak inside an element means Word started a new page
+			// at that element. Split BEFORE it so the element lands on the next page.
+			if (
+				scan.hints.some(h => h.kind === 'lastRenderedPageBreak') &&
+				currentChildren.length > 0
+			) {
+				result.push(makeRegion(region, currentChildren, currentBreakBefore, currentHints));
+				currentChildren = [];
+				currentHints = [];
+				currentBreakBefore = 'page';
+			}
+
 			currentChildren.push(child);
 			currentHints.push(...scan.hints);
 
