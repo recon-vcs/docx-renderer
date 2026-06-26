@@ -1,0 +1,4 @@
+agent-browserを使え
+fixtures/a.docxが一番複雑だからそれをサンプルに使え
+これの政界のレンダリングをreal/zz.png
+があるからそれと比較して見ろ
