@@ -26,6 +26,9 @@
     "importHelpers": false,
     "noEmitHelpers": false,
     "pretty": true,
+    "types": [
+      "vite/client"
+    ],
     "paths": {
       "@docx/*": [
         "./src/*"
@@ -33,6 +36,7 @@
     }
   },
   "include": [
-    "src"
+    "src",
+    "playground"
   ]
 }

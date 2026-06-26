@@ -1,6 +1,6 @@
 import { renderSync } from '../src/docx-preview';
 
-const fixtureUrls = import.meta.glob<string>('/tests/fixtures/*.docx', { query: '?url', import: 'default', eager: true });
+const fixtureUrls = import.meta.glob<string>('../tests/fixtures/*.docx', { query: '?url', import: 'default', eager: true });
 
 const select = document.querySelector<HTMLSelectElement>('#fixture-select')!;
 const fileInput = document.querySelector<HTMLInputElement>('#file-input')!;

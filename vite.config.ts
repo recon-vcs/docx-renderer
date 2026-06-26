@@ -2,21 +2,17 @@ import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
-	root: '.',
+	root: 'playground',
 	resolve: {
 		alias: {
 			'@docx': fileURLToPath(new URL('./src', import.meta.url)),
 		},
 	},
 	server: {
-		open: '/playground/index.html',
+		open: '/',
 	},
 	build: {
-		outDir: 'dist-playground',
-		rollupOptions: {
-			input: {
-				main: 'playground/index.html',
-			},
-		},
+		outDir: '../dist-playground',
+		emptyOutDir: true,
 	},
 });
