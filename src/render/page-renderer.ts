@@ -4,6 +4,7 @@ import { WordDocument } from '../word-document';
 import { DomType, OpenXmlElement } from '../model/element';
 import { FooterHeaderReference, SectionProperties } from '../document/section';
 import { selectHeaderFooterReference } from '../layout/header-footer-context';
+import { PageLayoutContext } from '../layout/page-numbering';
 import { createElement } from './dom-utils';
 
 export interface PageRendererCallbacks {
@@ -70,6 +71,7 @@ export async function renderHeaderFooterRef(
 	props: SectionProperties,
 	pageIndex: number,
 	isFirstPage: boolean,
+	layoutContext: PageLayoutContext | undefined,
 	parent: HTMLElement,
 	callbacks: PageRendererCallbacks
 ): Promise<HTMLElement | null> {
@@ -79,9 +81,9 @@ export async function renderHeaderFooterRef(
 
 	const ref = selectHeaderFooterReference(refs, {
 		titlePage: props.titlePage,
-		isFirstSectionPage: isFirstPage,
+		isFirstSectionPage: layoutContext?.isFirstSectionPage ?? isFirstPage,
 		evenAndOddHeaders: callbacks.evenAndOddHeaders,
-		isEvenPage: (pageIndex + 1) % 2 === 0,
+		isEvenPage: layoutContext?.isEvenPage ?? (pageIndex + 1) % 2 === 0,
 	});
 
 	if (!ref) {

@@ -1,7 +1,8 @@
 import { DomType, OpenXmlElement } from "./dom";
 import { SectionProperties } from "./section";
 import { uuid } from "../utils";
-import type { LayoutRegion } from "../layout/layout-region";
+import type { LayoutRegion, PhysicalPage } from "../layout/layout-region";
+import type { PageLayoutContext } from "../layout/page-numbering";
 
 export interface TreeNode extends OpenXmlElement {
 	prev?: TreeNode | null;
@@ -19,6 +20,8 @@ export interface PageProps {
 	contentElement?: HTMLElement;
 	checkingOverflow?: boolean,
 	regions?: LayoutRegion[];
+	physicalPage?: PhysicalPage;
+	layoutContext?: PageLayoutContext;
 }
 
 export class Page implements OpenXmlElement {
@@ -35,8 +38,10 @@ export class Page implements OpenXmlElement {
 	contentElement?: HTMLElement;
 	checkingOverflow?: boolean;
 	regions?: LayoutRegion[];
+	physicalPage?: PhysicalPage;
+	layoutContext?: PageLayoutContext;
 
-	constructor({ sectProps, children = [], stack = [], isSplit = false, isFirstPage = false, isLastPage = false, breakIndex = new Set(), contentElement, checkingOverflow = false, regions }: PageProps) {
+	constructor({ sectProps, children = [], stack = [], isSplit = false, isFirstPage = false, isLastPage = false, breakIndex = new Set(), contentElement, checkingOverflow = false, regions, physicalPage, layoutContext }: PageProps) {
 		this.type = DomType.Page;
 		this.level = 1;
 		this.pageId = uuid();
@@ -50,5 +55,7 @@ export class Page implements OpenXmlElement {
 		this.contentElement = contentElement;
 		this.checkingOverflow = checkingOverflow;
 		this.regions = regions;
+		this.physicalPage = physicalPage;
+		this.layoutContext = layoutContext;
 	}
 }

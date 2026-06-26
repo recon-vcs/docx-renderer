@@ -16,7 +16,8 @@ import type { Stage } from 'konva/lib/Stage';
 import type { Layer } from 'konva/lib/Layer';
 import { Overflow, ChildrenType, createElement, createElementNS, removeAllElements, appendChildren as appendChildrenSync, removeElements, createStyleElement, appendComment, Node_DOM } from './render/dom-utils';
 import { appendAndMeasure, inferOverflow } from './measure/overflow-measurer';
-import { splitOnOverflow } from './layout/page-split';
+import { splitOnOverflow, splitRegionOnOverflow } from './layout/page-split';
+import { buildPageLayoutContexts, type PageLayoutContext } from './layout/page-numbering';
 import { TableContext } from './render/table-renderer';
 import { renderNotes as renderNotesFn } from './render/notes-renderer';
 import { MathRendererCallbacks, mathJustificationToTextAlign } from './render/math-renderer';
@@ -32,6 +33,10 @@ import { splitDocumentIntoPhysicalPages } from './layout/modern-page-splitter';
 import { processElement, processTable } from './render/element-processor';
 import { renderStyleValues, renderClass, renderCommonProperties } from './render/style-applier';
 import { dispatchElement, ElementDispatchContext } from './render/element-dispatcher';
+
+interface RenderSplitContext {
+	regionIndex: number;
+}
 
 // HTML渲染器
 export class HtmlRendererSync {
@@ -286,16 +291,25 @@ export class HtmlRendererSync {
 	// Build physical pages from section regions and explicit break data.
 	splitPageBySymbol(documentElement: DocumentElement): Page[] {
 		const split = splitDocumentIntoPhysicalPages(documentElement);
+		const physicalPagesWithRegions = split.pages.filter(physicalPage => physicalPage.regions.length > 0);
+		const contexts = buildPageLayoutContexts(physicalPagesWithRegions);
+		const contextByPage = new Map(physicalPagesWithRegions.map((physicalPage, index) => [
+			physicalPage,
+			contexts[index],
+		]));
 
 		return split.pages.map(physicalPage => {
 			const activeRegion = physicalPage.regions[physicalPage.regions.length - 1];
 			const children = physicalPage.regions.flatMap(region => region.children);
+			const layoutContext = contextByPage.get(physicalPage);
 
 			return new Page({
 				isSplit: false,
-				sectProps: activeRegion?.section ?? documentElement.sectProps,
+				sectProps: layoutContext?.activeSection ?? activeRegion?.section ?? documentElement.sectProps,
 				children,
 				regions: physicalPage.regions,
+				physicalPage,
+				layoutContext,
 			} as PageProps);
 		});
 	}
@@ -325,7 +339,7 @@ export class HtmlRendererSync {
 			// sectionProps属性不存在，则使用文档级别props;
 			page.sectProps = sectProps ?? document.sectProps;
 			// 是否本小节的第一个page
-			page.isFirstPage = prevProps != page.sectProps;
+			page.isFirstPage = page.layoutContext?.isFirstSectionPage ?? prevProps != page.sectProps;
 			// TODO 是否最后一个page,此时分页未完成，计算并不准确，影响到尾注的渲染
 			page.isLastPage = i === origin_pages.length - 1;
 			// 溢出检测默认不开启
@@ -341,7 +355,7 @@ export class HtmlRendererSync {
 
 	// Render a single page. If content overflows, recursively splits into the next page.
 	async renderPage() {
-		const { pageId, sectProps, children, isFirstPage, isLastPage, regions } = this.currentPage;
+		const { pageId, sectProps, children, isFirstPage, isLastPage, regions, layoutContext } = this.currentPage;
 		processElement(this.currentPage);
 		const pageElement = this.createPage(this.className, sectProps);
 
@@ -353,10 +367,10 @@ export class HtmlRendererSync {
 		let oHeader: HTMLElement = null;
 		let oFooter: HTMLElement = null;
 		if (this.options.renderHeaders) {
-			oHeader = await this.renderHeaderFooterRef(sectProps.headerRefs, sectProps, pageIndex, isFirstPage, pageElement);
+			oHeader = await this.renderHeaderFooterRef(sectProps.headerRefs, sectProps, pageIndex, isFirstPage, layoutContext, pageElement);
 		}
 		if (this.options.renderFooters) {
-			oFooter = await this.renderHeaderFooterRef(sectProps.footerRefs, sectProps, pageIndex, isFirstPage, pageElement);
+			oFooter = await this.renderHeaderFooterRef(sectProps.footerRefs, sectProps, pageIndex, isFirstPage, layoutContext, pageElement);
 		}
 
 		const getOffsetHeight = (el: HTMLElement) => (el?.offsetHeight ?? 0) * this.pointToPixelRatio;
@@ -370,19 +384,29 @@ export class HtmlRendererSync {
 		const contentHeight = parseFloat(pageSize.height) - actualTop - actualBottom;
 
 		if (regions && regions.length > 1) {
-			// Multi-region page: continuous section changes within one physical page.
-			// Each region gets its own article with region-specific column layout.
-			// Overflow detection is skipped; pre-computed layout is used as-is.
-			for (const region of regions) {
-				const regionArticle = this.createPageContent(region.section);
-				regionArticle.style.minHeight = `${contentHeight}pt`;
-				pageElement.appendChild(regionArticle);
-				this.currentPage.contentElement = regionArticle;
-				this.currentPage.checkingOverflow = false;
-				await this.renderElements(region.children, regionArticle);
+			if (this.options.breakPages && !this.options.ignoreHeight) {
+				pageElement.style.height = sectProps.pageSize.height;
 			}
-			this.currentPage.isSplit = true;
-			pages[pageIndex] = this.currentPage;
+
+			let isOverflow = Overflow.FALSE;
+			for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
+				const region = regions[regionIndex];
+				const regionArticle = this.createPageContent(region.section);
+				regionArticle.dataset.sectionId = region.section?.sectionId;
+				regionArticle.dataset.breakBefore = region.breakBefore;
+				pageElement.appendChild(regionArticle);
+				this.currentPage.contentElement = pageElement;
+				this.currentPage.checkingOverflow = this.options.breakPages;
+				isOverflow = await this.renderElements(region.children, regionArticle, { regionIndex });
+				if (isOverflow !== Overflow.FALSE && isOverflow !== Overflow.UNKNOWN && isOverflow !== Overflow.IGNORE) {
+					break;
+				}
+			}
+			if (isOverflow === Overflow.FALSE || isOverflow === Overflow.UNKNOWN || isOverflow === Overflow.IGNORE) {
+				this.currentPage.isSplit = true;
+				pages[pageIndex] = this.currentPage;
+			}
+			this.currentPage.checkingOverflow = false;
 		} else {
 			// Single-region page: standard overflow detection path.
 			const contentElement = this.createPageContent(sectProps);
@@ -427,8 +451,8 @@ export class HtmlRendererSync {
 	// TODO 分页不准确，页脚页码混乱，
 	// TODO 支持奇数页偶数页不同页眉页脚
 	// 渲染页眉/页脚的Ref
-	async renderHeaderFooterRef(refs: FooterHeaderReference[], props: SectionProperties, pageIndex: number, isFirstPage: boolean, parent: HTMLElement) {
-		return renderHeaderFooterRefFn(refs, props, pageIndex, isFirstPage, parent, this.pageRendererCallbacks());
+	async renderHeaderFooterRef(refs: FooterHeaderReference[], props: SectionProperties, pageIndex: number, isFirstPage: boolean, layoutContext: PageLayoutContext | undefined, parent: HTMLElement) {
+		return renderHeaderFooterRefFn(refs, props, pageIndex, isFirstPage, layoutContext, parent, this.pageRendererCallbacks());
 	}
 
 	private pageRendererCallbacks(): PageRendererCallbacks {
@@ -454,7 +478,7 @@ export class HtmlRendererSync {
 	}
 
 	// 根据XML对象渲染多元素
-	async renderElements(children: OpenXmlElement[], parent: HTMLElement | Element | Text): Promise<Overflow> {
+	async renderElements(children: OpenXmlElement[], parent: HTMLElement | Element | Text, splitContext?: RenderSplitContext): Promise<Overflow> {
 		const overflows: Overflow[] = [];
 		const pages = this.document.documentPart.body.pages;
 		const { pageId } = this.currentPage;
@@ -501,7 +525,11 @@ export class HtmlRendererSync {
 
 			if (action === 'break') {
 				if (elem.level === 2) {
-					splitOnOverflow(this.currentPage, pages, pageIndex, i);
+					if (splitContext) {
+						splitRegionOnOverflow(this.currentPage, pages, pageIndex, splitContext.regionIndex, i);
+					} else {
+						splitOnOverflow(this.currentPage, pages, pageIndex, i);
+					}
 					processElement(this.currentPage);
 					this.currentPage = pages[pageIndex + 1];
 					await this.renderPage();

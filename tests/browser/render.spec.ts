@@ -103,9 +103,21 @@ test.describe('section and break smoke', () => {
 		const pageErrors: Error[] = [];
 		page.on('pageerror', (error) => pageErrors.push(error));
 
-		const html = await renderInPage(page, 'columns');
+		await renderInPage(page, 'columns');
+		const articleColumnCountsByPage = await page.evaluate(() => {
+			const pages = Array.from(document.querySelectorAll<HTMLElement>('section.docx'));
+
+			return pages.map(renderedPage => {
+				const articles = Array.from(renderedPage.querySelectorAll<HTMLElement>(':scope > article'));
+
+				return articles.map(article => getComputedStyle(article).columnCount);
+			});
+		});
+		const allColumnCounts = articleColumnCountsByPage.flat();
 
 		expect(pageErrors).toEqual([]);
-		expect(html).toMatch(/column-count|columns:/);
+		expect(articleColumnCountsByPage.some(columnCounts => columnCounts.length > 1)).toBe(true);
+		expect(allColumnCounts).toContain('2');
+		expect(allColumnCounts).toContain('3');
 	});
 });
