@@ -1,5 +1,5 @@
 import { WordDocument } from './word-document';
-import { BreakType, DomType, IDomNumbering, OpenXmlElement, WmlBreak, WmlCharacter, WmlDrawing, WmlHyperlink, WmlImage, WmlLastRenderedPageBreak, WmlNoteReference, WmlSectionBreak, WmlSymbol, WmlTable, WmlTableCell, WmlTableColumn, WmlTableRow, WmlText, WrapType, } from './document/dom';
+import { BreakType, DomType, IDomNumbering, OpenXmlElement, WmlBreak, WmlCharacter, WmlDrawing, WmlHyperlink, WmlImage, WmlLastRenderedPageBreak, WmlNoteReference, WmlSectionBreak, WmlSymbol, WmlTable, WmlTableCell, WmlTableColumn, WmlTableRow, WmlText, } from './document/dom';
 import { CommonProperties } from './document/common';
 import { Options } from './docx-preview';
 import { DocumentElement } from './document/document';
@@ -9,7 +9,6 @@ import { asArray, escapeClassName, uuid } from './utils';
 import { computePointToPixelRatio, updateTabStop } from './javascript';
 import { FontTablePart } from './font-table/font-table';
 import { FooterHeaderReference, SectionProperties, SectionType } from './document/section';
-import { parseLineSpacing } from "./document/spacing-between-lines";
 import { Page, PageProps, TreeNode } from './document/page';
 import { RunProperties, WmlRun } from './document/run';
 import { WmlBookmarkStart } from './document/bookmarks';
@@ -29,6 +28,7 @@ import { renderNotes as renderNotesFn, renderFootnoteReference as renderFootnote
 import { MathRendererCallbacks, mathJustificationToTextAlign, renderMmlMathParagraph as renderMmlMathParagraphFn, renderMmlRadical as renderMmlRadicalFn, renderMmlDelimiter as renderMmlDelimiterFn, renderMmlNary as renderMmlNaryFn, renderMmlPreSubSuper as renderMmlPreSubSuperFn, renderMmlGroupChar as renderMmlGroupCharFn, renderMmlBar as renderMmlBarFn, renderMmlRun as renderMmlRunFn, renderMllList as renderMllListFn } from './render/math-renderer';
 import { DrawingRenderContext, createKonva as createKonvaFn, renderDrawing as renderDrawingFn, renderImage as renderImageFn, renderShape as renderShapeFn, renderVmlElement as renderVmlElementFn, renderVmlPicture as renderVmlPictureFn } from './render/drawing-renderer';
 import { renderHeaderFooter as renderHeaderFooterFn } from './render/header-footer-renderer';
+import { InlineRendererCallbacks, renderCharacter as renderCharacterFn, renderHyperlink as renderHyperlinkFn, renderParagraph as renderParagraphFn, renderRun as renderRunFn, renderText as renderTextFn } from './render/inline-renderer';
 
 const ns = {
 	html: 'http://www.w3.org/1999/xhtml',
@@ -2171,136 +2171,39 @@ export class HtmlRendererSync {
 		return [replacement];
 	}
 
+	private inlineCallbacks(): InlineRendererCallbacks {
+		return {
+			appendChildren: (p, c) => this.appendChildren(p, c),
+			renderChildren: (e, p) => this.renderChildren(e, p),
+			renderClass: (e, o) => this.renderClass(e, o),
+			renderCommonProperties: (s, p) => this.renderCommonProperties(s, p),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+			resolveFieldRuns: (runs) => this.resolveFieldRuns(runs),
+			findStyle: (styleName) => this.findStyle(styleName),
+			numberingClass: (id, level) => this.numberingClass(id, level),
+			currentPageIsSplit: () => this.currentPage.isSplit,
+			currentSectionProperties: () => this.currentPage.sectProps,
+			findExternalRelation: (id) => this.document.documentPart.rels.find(
+				it => it.id == id && it.targetMode === 'External'
+			),
+		};
+	}
+
 	async renderParagraph(elem: WmlParagraph, parent: HTMLElement) {
-		// 创建段落元素
-		const oParagraph = createElement('p');
-		// PAGE/NUMPAGES等域代码求值，替换缓存的旧值
-		elem.children = this.resolveFieldRuns(elem.children);
-		// 生成段落的uuid标识，
-		oParagraph.dataset.uuid = elem.uuid;
-		// 渲染class
-		this.renderClass(elem, oParagraph);
-		// 结合文档网格线属性，计算行高
-		Object.assign(elem.cssStyle, parseLineSpacing(elem.props, this.currentPage.sectProps))
-		// 渲染CSS内联style样式
-		this.renderStyleValues(elem.cssStyle, oParagraph);
-		// 渲染常规--字体、颜色
-		this.renderCommonProperties(oParagraph.style, elem.props);
-		// 查找内置style样式
-		const style = this.findStyle(elem.styleName);
-		// 合并制表位规则
-		elem.props.tabs = _.unionBy(elem.props.tabs, style?.paragraphProps?.tabs, 'position');
-		// 列表序号
-		const numbering = elem.props.numbering ?? style?.paragraphProps?.numbering;
-
-		if (numbering) {
-			oParagraph.classList.add(
-				this.numberingClass(numbering.id, numbering.level)
-			);
-		}
-
-		// TODO 子代元素（Run）=> 孙代元素（Drawing）,可能有n个drawML对象。目前仅考虑一个DrawML的情况，多个DrawML对象定位存在bug
-		// 是否需要清除浮动
-		const is_clear = elem.children.some(run => {
-			// 是否存在上下型环绕
-			const is_exist_drawML = run?.children?.some(
-				child => child.type === DomType.Drawing && child.props.wrapType === WrapType.TopAndBottom
-			);
-			// 是否存在br元素拥有clear属性
-			const is_clear_break = run?.children?.some(
-				child => child.type === DomType.Break && child?.props?.clear
-			);
-			return is_exist_drawML || is_clear_break;
-		});
-		// 仅在上下型环绕清除浮动
-		if (is_clear) {
-			oParagraph.classList.add('clearfix');
-		}
-		// 后代元素定位参照物
-		oParagraph.style.position = 'relative';
-
-		// 溢出标识
-		let is_overflow: Overflow;
-		// oParagraph作为子元素插入,针对此元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oParagraph);
-		if (is_overflow === Overflow.TRUE) {
-			oParagraph.dataset.overflow = Overflow.SELF;
-
-			return oParagraph;
-		}
-		// 针对oParagraph后代子元素进行溢出检测
-		oParagraph.dataset.overflow = await this.renderChildren(elem, oParagraph);
-
-		return oParagraph;
+		return renderParagraphFn(elem, parent, this.inlineCallbacks());
 	}
 
 	async renderRun(elem: WmlRun, parent: HTMLElement) {
-		// TODO fieldRun ???
-		if (elem.fieldRun) {
-			return null;
-		}
-		// 创建元素
-		const oSpan = createElement('span');
-		// 渲染class
-		this.renderClass(elem, oSpan);
-		// 渲染style
-		this.renderStyleValues(elem.cssStyle, oSpan);
-		// 溢出标识
-		let is_overflow: Overflow;
-		// 作为子元素插入，先执行溢出检测，方便对后代元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oSpan);
-		if (is_overflow === Overflow.TRUE) {
-			oSpan.dataset.overflow = Overflow.SELF;
-
-			return oSpan;
-		}
-		// 上标、下标
-		if (elem.verticalAlign) {
-			// 创建sup/sub标签
-			const oScript = createElement(elem.verticalAlign as any);
-			// 将标签插入span，忽略溢出检测。
-			appendChildren(oSpan, oScript);
-			// 针对后代子元素进行溢出检测
-			oSpan.dataset.overflow = await this.renderChildren(elem, oScript);
-
-			return oSpan;
-		}
-		// 针对后代子元素进行溢出检测
-		oSpan.dataset.overflow = await this.renderChildren(elem, oSpan);
-
-		return oSpan;
+		return renderRunFn(elem, parent, this.inlineCallbacks());
 	}
 
 	async renderText(elem: WmlText, parent: HTMLElement) {
-		// String Data
-		let oText = document.createTextNode('') as Node_DOM;
-		// 初始化dataset对象
-		oText.dataset = { overflow: Overflow.UNKNOWN };
-		// 作为子元素插入，无需溢出检测
-		appendChildren(parent, oText);
-		// current page
-		let { isSplit } = this.currentPage;
-		// 当前page已拆分，忽略溢出检测
-		if (isSplit) {
-			oText.appendData(elem.text);
-			return oText;
-		}
-		// 针对后代子元素进行溢出检测
-		oText.dataset.overflow = await this.renderChildren(elem, oText);
-
-		return oText;
+		return renderTextFn(elem, parent, this.inlineCallbacks());
 	}
 
-	// 按照单个文字渲染，检测溢出
+	// Render one character at a time for overflow detection.
 	async renderCharacter(elem: WmlCharacter, parent: Text) {
-		// String Data
-		let oCharacter = document.createTextNode(elem.char) as Node_DOM;
-		// 初始化dataset对象
-		oCharacter.dataset = { overflow: Overflow.UNKNOWN };
-		// 作为子元素插入，先执行溢出检测，方便对后代元素进行溢出检测
-		oCharacter.dataset.overflow = await this.appendChildren(parent, oCharacter);
-
-		return oCharacter;
+		return renderCharacterFn(elem, parent, this.inlineCallbacks());
 	}
 
 	async renderTable(elem: WmlTable, parent: HTMLElement) {
@@ -2338,31 +2241,7 @@ export class HtmlRendererSync {
 	}
 
 	async renderHyperlink(elem: WmlHyperlink, parent: HTMLElement) {
-		const oAnchor = createElement('a');
-		// 渲染style
-		this.renderStyleValues(elem.cssStyle, oAnchor);
-		// 溢出标识
-		let is_overflow: Overflow;
-		// 作为子元素插入，先执行溢出检测，方便对后代元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oAnchor);
-		if (is_overflow === Overflow.TRUE) {
-			oAnchor.dataset.overflow = Overflow.SELF;
-
-			return oAnchor;
-		}
-		// 链接地址
-		if (elem.href) {
-			oAnchor.href = elem.href;
-		} else if (elem.id) {
-			const rel = this.document.documentPart.rels.find(
-				it => it.id == elem.id && it.targetMode === 'External'
-			);
-			oAnchor.href = rel?.target;
-		}
-		// 针对后代子元素进行溢出检测
-		oAnchor.dataset.overflow = await this.renderChildren(elem, oAnchor);
-
-		return oAnchor;
+		return renderHyperlinkFn(elem, parent, this.inlineCallbacks());
 	}
 
 	async renderDrawing(elem: WmlDrawing, parent: HTMLElement) {
