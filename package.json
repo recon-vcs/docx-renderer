@@ -41,6 +41,7 @@
     "build": "rollup --config rollup.config.mjs",
     "watch": "rollup --config rollup.config.mjs --watch",
     "test": "vitest run",
+    "test:line-count": "vitest run tests/unit/line-count.spec.ts",
     "test:watch": "vitest",
     "test:browser": "playwright test"
   },

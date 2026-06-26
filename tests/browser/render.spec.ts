@@ -120,4 +120,5 @@ test.describe('section and break smoke', () => {
 		expect(allColumnCounts).toContain('2');
 		expect(allColumnCounts).toContain('3');
 	});
+
 });
