@@ -3,8 +3,11 @@ export {
 	MathDomType,
 	BreakType,
 	WrapType,
-	OpenXmlElement,
 	OpenXmlElementBase,
+} from '../model/element';
+
+export type {
+	OpenXmlElement,
 	WmlHyperlink,
 	WmlNoteReference,
 	WmlBreak,
@@ -15,19 +18,19 @@ export {
 	WmlSymbol,
 } from '../model/element';
 
-export {
+export type {
 	WmlTable,
 	WmlTableRow,
 	WmlTableCell,
 	WmlTableColumn,
 } from '../model/table';
 
-export {
+export type {
 	WmlDrawing,
 	WmlImage,
 } from '../model/drawing';
 
-export {
+export type {
 	IDomNumbering,
 	NumberingPicBullet,
 } from '../model/numbering-types';
