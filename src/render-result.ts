@@ -1,4 +1,4 @@
-import { WordDocument } from './word-document';
+import { WordDocument } from '@docx/word-document';
 
 export interface PageHandle {
 	index: number;
@@ -36,7 +36,14 @@ export interface RenderResult {
 	pages: PageHandle[];
 	sourceMap: SourceMap;
 	overlay: OverlayLayer;
+	dispose(): void;
 }
+
+const renderResultKey = Symbol('docx-vellum.renderResult');
+
+type RenderResultContainer = HTMLElement & {
+	[renderResultKey]?: RenderResult;
+};
 
 class DomSourceMap implements SourceMap {
 	private elementsByPath = new Map<string, HTMLElement[]>();
@@ -147,6 +154,9 @@ class DomOverlayLayer implements OverlayLayer {
 			cancelAnimationFrame(this.frameId);
 			this.frameId = null;
 		}
+		for (const page of this.pages) {
+			page.element.querySelector<HTMLElement>(':scope > .vellum-overlay-layer')?.remove();
+		}
 	}
 
 	private readonly onWindowResize = () => this.scheduleUpdate();
@@ -245,10 +255,23 @@ export function createRenderResult(document: WordDocument, bodyContainer: HTMLEl
 		),
 	}));
 
-	return {
+	const result: RenderResult = {
 		document,
 		pages,
 		sourceMap: new DomSourceMap(bodyContainer),
 		overlay: new DomOverlayLayer(bodyContainer, pages),
+		dispose() {
+			result.overlay.dispose();
+			const container = bodyContainer as RenderResultContainer;
+			if (container[renderResultKey] === result) {
+				delete container[renderResultKey];
+			}
+		},
 	};
+	(bodyContainer as RenderResultContainer)[renderResultKey] = result;
+	return result;
+}
+
+export function disposeRenderResult(bodyContainer: HTMLElement): void {
+	(bodyContainer as RenderResultContainer)[renderResultKey]?.dispose();
 }

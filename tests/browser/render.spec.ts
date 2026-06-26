@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
  * harness page. Only the members used by these tests are declared.
  */
 interface DocxGlobal {
-	renderSync(data: Blob, bodyContainer: HTMLElement): Promise<unknown>;
+	renderSync(data: Blob, bodyContainer: HTMLElement): Promise<{ dispose(): void }>;
 }
 
 type HarnessWindow = Window & typeof globalThis & { docx: DocxGlobal };
@@ -41,11 +41,13 @@ async function renderInPage(page: Page, fixture: string): Promise<string> {
 			const body = document.querySelector<HTMLElement>('#document-container');
 			if (!body) {
 				throw new Error('harness is missing #document-container');
-			}
-			const docx = (window as HarnessWindow).docx;
-			await docx.renderSync(blob, body);
-			return body.innerHTML;
-		},
+				}
+				const docx = (window as HarnessWindow).docx;
+				const result = await docx.renderSync(blob, body);
+				const html = body.innerHTML;
+				result.dispose();
+				return html;
+			},
 		{ fixture },
 	);
 }
@@ -63,4 +65,112 @@ test.describe('renderSync smoke', () => {
 			expect(html).toContain('docx-wrapper');
 		});
 	}
+});
+
+const SECTION_SMOKE_CASES = [
+	'section-break',
+	'columns',
+	'column-break',
+	'footer-with-section',
+	'header-section',
+	'break-page-section-break',
+] as const;
+
+test.describe('section and break smoke', () => {
+	for (const name of SECTION_SMOKE_CASES) {
+		test(`renders ${name} without errors`, async ({ page }) => {
+			const pageErrors: Error[] = [];
+			page.on('pageerror', (error) => pageErrors.push(error));
+
+			const html = await renderInPage(page, name);
+
+			expect(pageErrors).toEqual([]);
+			expect(html.length).toBeGreaterThan(0);
+			expect(html).toContain('docx-wrapper');
+		});
+	}
+
+	test('section-break renders at least one page', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'section-break');
+
+		expect(pageErrors).toEqual([]);
+		const count = await page.locator('section.docx').count();
+		expect(count).toBeGreaterThanOrEqual(1);
+	});
+
+	test('columns renders multi-column content', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'columns');
+		const articleColumnCountsByPage = await page.evaluate(() => {
+			const pages = Array.from(document.querySelectorAll<HTMLElement>('section.docx'));
+
+			return pages.map(renderedPage => {
+				const articles = Array.from(renderedPage.querySelectorAll<HTMLElement>(':scope > article'));
+
+				return articles.map(article => getComputedStyle(article).columnCount);
+			});
+		});
+		const allColumnCounts = articleColumnCountsByPage.flat();
+
+		expect(pageErrors).toEqual([]);
+		expect(articleColumnCountsByPage.some(columnCounts => columnCounts.length > 1)).toBe(true);
+		expect(allColumnCounts).toContain('2');
+		expect(allColumnCounts).toContain('3');
+	});
+
+	test('header image pagination does not repeat the same overflowing block', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'break-page-header-image');
+		const metrics = await page.evaluate(() => {
+			const pages = Array.from(document.querySelectorAll<HTMLElement>('section.docx'));
+			const images = Array.from(document.querySelectorAll<HTMLImageElement>('img'));
+
+			return {
+				pageCount: pages.length,
+				imageCount: images.length,
+				imagesDecoded: images.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0),
+				pageTexts: pages.map(renderedPage => renderedPage.querySelector('article')?.textContent?.trim() ?? ''),
+			};
+		});
+
+		expect(pageErrors).toEqual([]);
+		expect(metrics.pageCount).toBeGreaterThan(1);
+		expect(metrics.pageCount).toBeLessThan(10);
+		expect(metrics.imageCount).toBeGreaterThan(0);
+		expect(metrics.imagesDecoded).toBe(true);
+		expect(metrics.pageTexts.some(text => text.includes('UN'))).toBe(true);
+	});
+
+	test('a.docx keeps positioned drawing images visible after overflow', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'a');
+		const imageLikeCount = await page.getByRole('img').count();
+		const metrics = await page.evaluate(() => {
+			const pages = Array.from(document.querySelectorAll<HTMLElement>('section.docx'));
+			const htmlImages = Array.from(document.querySelectorAll<HTMLImageElement>('img'));
+
+			return {
+				pageCount: pages.length,
+				pageTexts: pages.map(renderedPage => renderedPage.querySelector('article')?.textContent?.trim() ?? ''),
+				imagesDecoded: htmlImages.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0),
+			};
+		});
+
+		expect(pageErrors).toEqual([]);
+		expect(metrics.pageCount).toBeGreaterThanOrEqual(1);
+		expect(imageLikeCount).toBeGreaterThanOrEqual(3);
+		expect(metrics.imagesDecoded).toBe(true);
+		expect(metrics.pageTexts[1]).toContain('６');
+		expect(metrics.pageTexts[1]).toContain('テキストボックス');
+	});
+
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asArray, escapeClassName, resolvePath, splitPath, uuid } from '../../src/utils';
+import { asArray, escapeClassName, resolvePath, splitPath, uuid } from '../../src/shared/utils';
 
 describe('splitPath', () => {
 	it('splits a nested path into folder and file name', () => {

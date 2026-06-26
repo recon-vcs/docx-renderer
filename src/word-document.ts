@@ -1,23 +1,23 @@
-import { OutputType } from "jszip";
-import mime from './mime';
+import { OutputType } from 'jszip';
+import mime from '@docx/opc/mime';
 
-import { DocumentParser } from './document-parser';
-import { Relationship, RelationshipTypes } from './common/relationship';
-import { Part } from './common/part';
-import { FontTablePart } from './font-table/font-table';
-import { OpenXmlPackage } from './common/open-xml-package';
-import { DocumentPart } from './document/document-part';
-import { blobToBase64, resolvePath, splitPath } from './utils';
-import { NumberingPart } from './numbering/numbering-part';
-import { StylesPart } from './styles/styles-part';
-import { FooterPart, HeaderPart } from "./header-footer/parts";
-import { ExtendedPropsPart } from "./document-props/extended-props-part";
-import { CorePropsPart } from "./document-props/core-props-part";
-import { ThemePart } from "./theme/theme-part";
-import { EndnotesPart, FootnotesPart } from "./notes/parts";
-import { SettingsPart } from "./settings/settings-part";
-import { CustomPropsPart } from "./document-props/custom-props-part";
-import { CommentsPart } from "./comments/comments-part";
+import { DocumentParser } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
+import { Relationship, RelationshipTypes } from '@docx/opc/relationships/relationship';
+import { Part } from '@docx/opc/parts/part';
+import { FontTablePart } from '@docx/ooxml/wordprocessingml/parts/font-table/font-table';
+import { OpenXmlPackage } from '@docx/opc/package/open-xml-package';
+import { DocumentPart } from '@docx/ooxml/wordprocessingml/document/parts/document-part';
+import { blobToBase64, resolvePath, splitPath } from '@docx/shared/utils';
+import { NumberingPart } from '@docx/ooxml/wordprocessingml/parts/numbering/numbering-part';
+import { StylesPart } from '@docx/ooxml/wordprocessingml/parts/styles/styles-part';
+import { FooterPart, HeaderPart } from '@docx/ooxml/wordprocessingml/parts/header-footer/parts';
+import { ExtendedPropsPart } from '@docx/ooxml/wordprocessingml/parts/document-properties/extended-props-part';
+import { CorePropsPart } from '@docx/ooxml/wordprocessingml/parts/document-properties/core-props-part';
+import { ThemePart } from '@docx/ooxml/drawingml/theme/theme-part';
+import { EndnotesPart, FootnotesPart } from '@docx/ooxml/wordprocessingml/parts/notes/parts';
+import { SettingsPart } from '@docx/ooxml/wordprocessingml/parts/settings/settings-part';
+import { CustomPropsPart } from '@docx/ooxml/wordprocessingml/parts/document-properties/custom-props-part';
+import { CommentsPart } from '@docx/ooxml/wordprocessingml/parts/comments/comments-part';
 
 const topLevelRels = [
 	{ type: RelationshipTypes.OfficeDocument, target: "word/document.xml" },

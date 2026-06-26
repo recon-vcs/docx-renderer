@@ -44,7 +44,8 @@
 </div>
 
 <script>
-	let currentDocument = null;
+		let currentDocument = null;
+		let currentRender = null;
 	const docxOptions = Object.assign(docx.defaultOptions, {
 		debug: true,
 		experimental: true
@@ -60,13 +61,14 @@
 	async function renderDocx(file) {
 		currentDocument = file;
 
-		if (!currentDocument) return;
+			if (!currentDocument) return;
 
-		docx.renderSync(currentDocument, document_container, style_container, docxOptions)
-			.then((x) => {
-				console.log(x);
-			});
-	}
+			docx.renderSync(currentDocument, document_container, style_container, docxOptions)
+				.then((result) => {
+					currentRender?.dispose();
+					currentRender = result;
+				});
+		}
 
 	fileInput.addEventListener("change", ev => {
 		renderDocx(fileInput.files[0]);

@@ -1,5 +1,5 @@
-import { Length } from "./document/common";
-import { TabStop } from "./document/paragraph";
+import { Length } from '@docx/ooxml/wordprocessingml/document/model/common';
+import { TabStop } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
 
 const defaultTab: TabStop = { position: 0, leader: "none", style: "left" };
 const maxTabs = 50;

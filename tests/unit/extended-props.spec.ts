@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DocumentParser } from '../../src/document-parser';
+import { DocumentParser } from '../../src/ooxml/wordprocessingml/parsing/document-parser';
 import { WordDocument } from '../../src/word-document';
 
 const PARSE_OPTIONS = {

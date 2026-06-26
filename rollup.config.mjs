@@ -1,8 +1,14 @@
+import alias from '@rollup/plugin-alias';
 import typescript from '@rollup/plugin-typescript';
 import nodeExternals from 'rollup-plugin-node-externals';
 import dts from 'rollup-plugin-dts';
+import { fileURLToPath } from 'node:url';
 
 const input = 'src/docx-preview.ts';
+
+const aliasPlugin = alias({
+	entries: [{ find: '@docx', replacement: fileURLToPath(new URL('./src', import.meta.url)) }],
+});
 
 const umdGlobals = {
 	jszip: 'JSZip',
@@ -43,6 +49,7 @@ export default [
 			},
 		],
 		plugins: [
+			aliasPlugin,
 			nodeExternals(),
 			typescript(),
 		],
@@ -54,6 +61,7 @@ export default [
 			format: 'es',
 		},
 		plugins: [
+			aliasPlugin,
 			dts(),
 		],
 	},
