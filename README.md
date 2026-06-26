@@ -1,25 +1,52 @@
 # docx-renderer
 
-Synchronous docx → HTML rendering library for the browser.
+**The highest-fidelity DOCX-to-HTML renderer for the browser.**
 
-docx-renderer parses Office Open XML (`.docx`) files with no server round-trip and
-renders them as paginated HTML directly into a DOM container. It is the document
-preview engine of the [Recon](https://github.com/recon-vcs) project and is being
-evolved into a standalone, publishable npm library.
+`docx-renderer` converts Microsoft Word documents into paginated HTML entirely in the browser. It parses Office Open XML directly, reconstructs page geometry, and renders into a DOM container — no server, no conversion, no compromise on accuracy.
 
-> **Status: 0.x — the public API may still change.** `renderSync` and
-> `renderDocument` return a `RenderResult` with `document`, `pages`,
-> `sourceMap`, `overlay`, and `dispose()`. Pin an exact version if you depend
-> on the current shape.
+**Goal: 99% visual agreement with Microsoft Word.**
 
-## Origin and credits
+The renderer already produces high-quality output across a wide range of real-world documents. Development is focused on systematically closing the remaining differences in pagination, typography, spacing, tables, drawings, headers, footers, and other Word layout behaviors.
 
-docx-renderer is a fork of
-[docx-preview-sync](https://github.com/millet0328/docx-preview-sync) by
-**millet0328**, which is itself derived from
-[docx-preview / docxjs](https://github.com/VolodymyrBaydalka/docxjs) by
-**Volodymyr Baydalka**. Both projects are licensed under the Apache License 2.0,
-and this fork keeps that license. See [NOTICE](./NOTICE) for attribution details.
+`docx-renderer` is the document preview engine used by [Recon](https://github.com/recon-vcs) and is published as a standalone npm library.
+
+**[Live Playground →](https://recon-vcs.github.io/docx-renderer/)**
+
+---
+
+## Why not just convert DOCX to HTML?
+
+Rendering a Word document correctly is not the same as extracting its text.
+
+A `.docx` file is a layout system: page geometry, style inheritance, section properties, numbering engines, floating objects, table measurements, font metrics, line breaking rules, and dozens of interacting compatibility settings. Even a small error in any one of these can shift content between lines or pages and cause the entire document to diverge from Word.
+
+`docx-renderer` is designed around **visual fidelity**, not approximate conversion. Every layout decision traces back to the Office Open XML specification and observed Microsoft Word behavior.
+
+## Features
+
+- **Paginated HTML output** — pages match Word's dimensions, margins, and layout
+- **No server round-trip** — parsing and rendering run entirely in the browser
+- **Headers, footers, footnotes, endnotes** — including first-page and odd/even variants
+- **Tables** — including nested tables, merged cells, column spans, and fixed headers
+- **Images and drawings** — inline and anchored, with rotation and clipping
+- **Text wrapping** — inline, square, tight, through, behind-text, and in-front-of-text
+- **Numbering and lists** — inherited through style chains
+- **Section breaks and columns** — continuous, page, and odd/even section transitions
+- **Style inheritance** — full paragraph and character style chains
+- **Document grid** — `lines`, `linesAndChars`, `snapToChars`, and exact/at-least line rule overrides
+- **Source-to-DOM mapping** — bidirectional link between document structure and rendered elements
+- **Overlay system** — positioned annotations, comments, and editor interfaces
+- **Revision marks** — tracked changes rendering
+- **ESM, CommonJS, and UMD builds**
+- **Deterministic output** — suitable for golden-file regression testing
+
+## Project status
+
+> **0.x — API may change**
+
+The renderer is usable and produces high-quality output on real-world documents. The public API shape may still change while the architecture and compatibility surface are being refined.
+
+Pin an exact package version when depending on the current API shape.
 
 ## Installation
 
@@ -27,12 +54,9 @@ and this fork keeps that license. See [NOTICE](./NOTICE) for attribution details
 npm install docx-renderer
 ```
 
-Runtime dependencies (`jszip`, `konva`, `lodash-es`) are declared as regular
-dependencies and are installed automatically.
+Runtime dependencies (`jszip`, `konva`, `lodash-es`) are installed automatically.
 
-## Usage
-
-### ESM / bundler
+## Quick start
 
 ```ts
 import { renderSync } from "docx-renderer";
@@ -40,78 +64,250 @@ import { renderSync } from "docx-renderer";
 const response = await fetch("/sample.docx");
 const blob = await response.blob();
 
-const body = document.getElementById("document-container");
-const style = document.getElementById("style-container");
+const result = await renderSync(
+  blob,
+  document.getElementById("document-container"),
+  document.getElementById("style-container"),
+  { breakPages: true },
+);
 
-// Parses the document and renders paginated HTML into `body`.
-const result = await renderSync(blob, body, style, { breakPages: true });
-// Call result.dispose() when done to release observers.
+// Release observers and overlay resources when done.
+result.dispose();
 ```
 
-### Browser global (UMD)
+## API
 
-Load `dist/docx-renderer.umd.js` after `jszip`, `konva` and `lodash`; the library
-is then available as the global `docx`:
+### `parseAsync`
+
+```ts
+parseAsync(
+  data: Blob | ArrayBuffer | Uint8Array,
+  options?: Partial<Options>,
+): Promise<WordDocument>
+```
+
+Parses a DOCX file into a `WordDocument` model without rendering. Use this when you need to inspect, cache, or transform the document model before rendering.
+
+### `renderSync`
+
+```ts
+renderSync(
+  data: Blob | ArrayBuffer | Uint8Array,
+  bodyContainer: HTMLElement,
+  styleContainer?: HTMLElement,
+  options?: Partial<Options>,
+): Promise<RenderResult>
+```
+
+Parses and renders a DOCX file into the supplied DOM container in one step.
+
+### `renderDocument`
+
+```ts
+renderDocument(
+  document: WordDocument,
+  bodyContainer: HTMLElement,
+  styleContainer?: HTMLElement,
+  options?: Partial<Options>,
+): Promise<RenderResult>
+```
+
+Renders an already-parsed `WordDocument`. Use this when you have called `parseAsync` separately.
+
+### `defaultOptions` / `resolveOptions`
+
+```ts
+import { defaultOptions, resolveOptions } from "docx-renderer";
+
+const options = resolveOptions({ breakPages: true });
+```
+
+## Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `breakPages` | `boolean` | `true` | Render each Word page as a separate `<section>` element |
+| `className` | `string` | `"docx"` | CSS class prefix applied to rendered elements |
+| `ignoreFonts` | `boolean` | `false` | Skip font embedding from the document |
+| `ignoreHeight` | `boolean` | `false` | Ignore page height constraints |
+| `ignoreImageWrap` | `boolean` | `false` | Ignore image text-wrapping settings |
+| `ignoreLastRenderedPageBreak` | `boolean` | `true` | Ignore `<w:lastRenderedPageBreak>` hints from Word |
+| `ignoreTableWrap` | `boolean` | `true` | Ignore table text-wrapping |
+| `ignoreWidth` | `boolean` | `false` | Ignore page width constraints |
+| `inWrapper` | `boolean` | `true` | Wrap output in a container element |
+| `renderChanges` | `boolean` | `false` | Render tracked changes (revision marks) |
+| `renderEndnotes` | `boolean` | `true` | Render endnotes |
+| `renderFooters` | `boolean` | `true` | Render footers |
+| `renderFootnotes` | `boolean` | `true` | Render footnotes |
+| `renderHeaders` | `boolean` | `true` | Render headers |
+| `trimXmlDeclaration` | `boolean` | `true` | Strip XML declarations from inline SVG |
+| `useBase64URL` | `boolean` | `false` | Encode images as base64 data URLs instead of blob URLs |
+| `debug` | `boolean` | `false` | Emit debug attributes on rendered elements |
+
+## RenderResult
+
+```ts
+interface RenderResult {
+  document:  WordDocument;   // Parsed document model
+  pages:     PageHandle[];   // Per-page metadata and DOM references
+  sourceMap: SourceMap;      // Bidirectional DOCX path ↔ DOM element mapping
+  overlay:   OverlayLayer;   // Positioned overlay system for annotations
+  dispose(): void;           // Disconnect observers and release resources
+}
+```
+
+### Pages
+
+`pages` is an array of `PageHandle` objects:
+
+```ts
+interface PageHandle {
+  index:      number;        // Zero-based page index
+  element:    HTMLElement;   // The rendered <section> element
+  blockPaths: string[];      // Document block paths rendered on this page
+}
+```
+
+Use `pages` to implement page navigation, virtualized viewers, or document inspection tools.
+
+### Source map
+
+`sourceMap` connects the parsed DOCX structure to the rendered DOM.
+
+```ts
+interface SourceMap {
+  elementsFor(blockPath: string): HTMLElement[];
+  pathFor(element: HTMLElement): string | null;
+}
+```
+
+Use the source map to locate DOM elements from document paths, attach review comments, synchronize with an external editor, or implement selection and diff tools.
+
+### Overlay layer
+
+`overlay` provides a positioned layer for user interface elements anchored to document content.
+
+```ts
+interface OverlayLayer {
+  attach(anchor: HTMLElement, content: HTMLElement, opts?: AttachOptions): OverlayHandle;
+  clear(): void;
+  dispose(): void;
+}
+```
+
+The overlay layer repositions attached elements automatically when the document is resized or scrolled. It is used by Recon for review comments and annotation markers.
+
+## Separate parse and render
+
+```ts
+import { parseAsync, renderDocument } from "docx-renderer";
+
+const documentModel = await parseAsync(blob);
+
+// Inspect, transform, or cache documentModel here.
+
+const result = await renderDocument(
+  documentModel,
+  document.getElementById("document-container"),
+  undefined,
+  { breakPages: true },
+);
+```
+
+## UMD / browser global
+
+Load dependencies before the UMD bundle. The library is exposed as `window.docx`.
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/konva@9.3.6/konva.min.js"></script>
-<script src="docx-renderer.umd.js"></script>
+<script src="./docx-renderer.umd.js"></script>
+
 <script>
-  docx.renderSync(blob, document.getElementById("container")).then((result) => {
-    result.dispose();
-  });
+  const result = await docx.renderSync(blob, container, undefined, { breakPages: true });
 </script>
 ```
 
-### API
+## Rendering fidelity
 
-| Export | Description |
-| --- | --- |
-| `parseAsync(data, options?)` | Parses a docx file (`Blob`, `ArrayBuffer` or `Uint8Array`) into a `WordDocument` model without rendering. |
-| `renderSync(data, body, style?, options?)` | Parses and renders a docx file. Returns a `RenderResult`. |
-| `renderDocument(doc, body, style?, options?)` | Renders an already-parsed `WordDocument`. Returns a `RenderResult`. |
-| `defaultOptions` | The default `Options` values. |
-| `resolveOptions(partial?)` | Merges user options with `defaultOptions`. |
+The long-term target is complete visual agreement with Microsoft Word.
 
-#### RenderResult
+Accurate rendering requires understanding how Word interprets Office Open XML, not just how the spec is written. Some layout decisions depend on Word's internal rendering engine, compatibility mode settings, or undocumented behavior. These are treated as measurable engineering problems rather than unknowns.
 
-| Member | Type | Description |
-| --- | --- | --- |
-| `document` | `WordDocument` | The parsed document model. |
-| `pages` | `PageHandle[]` | One entry per rendered page (`index`, `element`, `blockPaths`). |
-| `sourceMap` | `SourceMap` | Bidirectional mapping between block paths and DOM elements. |
-| `overlay` | `OverlayLayer` | Overlay system for attaching positioned UI over page elements. |
-| `dispose()` | `() => void` | Disconnects observers and cleans up overlay state. |
+Areas of active development:
 
-See `src/options.ts` for all `Options` flags (page breaking, header/footer/footnote rendering, ...).
+- Page dimensions and margins
+- Section breaks and section-scoped layout
+- Paragraph spacing and indentation
+- Line height, line breaking, and line grid snapping
+- Font resolution and fallback behavior
+- Style inheritance through paragraph and character chains
+- Numbering and list layout
+- Table width measurement and cell sizing
+- Borders, shading, and table cell backgrounds
+- Headers and footers, including first-page and odd/even variants
+- Footnotes and endnotes
+- Images, drawings, and anchored objects
+- Text wrapping modes
+- Page breaks and pagination
+- Word compatibility settings
 
-## Demo
-
-`docs/index.html` is a static `renderSync` demo page. Build first, then serve
-the repository root with any static file server and open the page:
-
-```bash
-npm run build
-npx serve .   # or: python3 -m http.server
-# open http://localhost:3000/docs/
-```
+Rendering changes should be validated against real DOCX fixtures and visual regression tests. The test suite in `tests/` includes over 100 fixture documents covering the above areas.
 
 ## Development
 
 ```bash
-npm install
-npm run build          # ESM + CJS + UMD bundles and .d.ts into dist/
-npm test               # vitest unit tests (tests/unit)
-npx playwright install chromium   # once, before the first browser test run
-npm run test:browser   # Playwright rendering tests (tests/browser)
+pnpm install
+pnpm build          # ESM + CJS + UMD + TypeScript declarations
+pnpm test           # Unit tests
+pnpm test:browser   # Playwright rendering tests (requires Chromium)
+pnpm dev            # Vite playground with HMR
 ```
 
-Test fixtures live in `tests/fixtures/*.docx`; golden HTML outputs for the
-rendering regression tests live in `tests/golden/*.html`.
+Install Chromium for browser tests:
+
+```bash
+npx playwright install chromium
+```
+
+## Testing
+
+```
+tests/
+├── browser/     Playwright rendering tests against real DOCX fixtures
+├── fixtures/    100+ DOCX input documents covering layout edge cases
+├── golden/      Expected HTML output for regression testing
+└── unit/        Isolated parser and renderer unit tests
+```
+
+- Unit tests cover pagination logic, style resolution, section parsing, and layout primitives.
+- Browser tests render each fixture in Chromium and compare against golden HTML.
+- Rendering fixes should include a representative DOCX fixture and a regression test.
+
+## Origin and attribution
+
+`docx-renderer` is a fork of [docx-preview-sync](https://github.com/millet0328/docx-preview-sync) by **millet0328**, which is itself derived from [docx-preview / docxjs](https://github.com/VolodymyrBaydalka/docxjs) by **Volodymyr Baydalka**.
+
+Both upstream projects are licensed under the Apache License 2.0. This project retains that license and the required attribution.
+
+See [`NOTICE`](./NOTICE) for details.
+
+## Contributing
+
+Contributions that improve rendering correctness, OOXML compatibility, or test coverage are welcome.
+
+For rendering changes, include:
+
+1. A DOCX file that reproduces the issue
+2. A description of the expected Microsoft Word output
+3. A regression test against the new fixture
+4. The smallest practical implementation change
+
+Correctness and OOXML compatibility take priority over document-specific CSS patches.
 
 ## License
 
-[Apache-2.0](./LICENSE). Includes code from docx-preview-sync and
-docx-preview/docxjs — see [NOTICE](./NOTICE).
+[Apache License 2.0](./LICENSE)
+
+This project includes code derived from `docx-preview-sync` and `docx-preview`. See [`NOTICE`](./NOTICE) for attribution.
