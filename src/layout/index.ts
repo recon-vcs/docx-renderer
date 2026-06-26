@@ -7,3 +7,4 @@ export * from './header-footer-context';
 export * from './modern-page-splitter';
 export * from './explicit-breaks';
 export * from './pagination';
+export * from './page-split';
