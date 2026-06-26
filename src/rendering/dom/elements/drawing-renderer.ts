@@ -53,7 +53,7 @@ export async function renderDrawing(
 	parent: HTMLElement,
 	ctx: DrawingRenderContext
 ): Promise<HTMLElement> {
-	const childHasAutoFit = elem.children?.some((c: OpenXmlElement) => c.props?.textbox?.autoFit);
+	const childHasAutoFit = elem.children?.some((c: OpenXmlElement) => c.props?.textbox?.autoFit === 'shape');
 
 	const oDrawing = createElement('span');
 	oDrawing.classList.add(`${ctx.className}-drawing`);
@@ -110,7 +110,7 @@ export async function renderShape(
 	ctx: DrawingRenderContext
 ): Promise<HTMLElement> {
 	const textbox = elem.props?.textbox ?? {};
-	const autoFit: boolean = textbox.autoFit ?? false;
+	const autoFit = textbox.autoFit === 'shape';
 
 	// For autoFit textboxes, don't apply fixed height — let content drive size.
 	const containerStyle = autoFit

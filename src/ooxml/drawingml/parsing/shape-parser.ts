@@ -88,12 +88,17 @@ export function parseShape(
 	return shape;
 }
 
+export type TextAutoFit = 'none' | 'normal' | 'shape';
+
 function parseTextBodyProperties(node: Element, target: OpenXmlElement): void {
-	let autoFit = false;
+	let autoFit: TextAutoFit = 'none';
 	for (const child of xml.elements(node)) {
 		if (child.localName === "spAutoFit") {
-			autoFit = true;
+			autoFit = 'shape';
+		} else if (child.localName === "normAutofit") {
+			autoFit = 'normal';
 		}
+		// noAutofit → stays 'none'
 	}
 	target.props.textbox = {
 		paddingLeft: xml.lengthAttr(node, "lIns", LengthUsage.Emu),
