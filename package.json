@@ -47,7 +47,8 @@
     "test": "vitest run",
     "test:line-count": "vitest run tests/unit/line-count.spec.ts",
     "test:watch": "vitest",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "build:playground": "vite build --base=/docx-renderer/"
   },
   "dependencies": {
     "@types/node": "^25.9.3",

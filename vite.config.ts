@@ -11,4 +11,12 @@ export default defineConfig({
 	server: {
 		open: '/playground/index.html',
 	},
+	build: {
+		outDir: 'dist-playground',
+		rollupOptions: {
+			input: {
+				main: 'playground/index.html',
+			},
+		},
+	},
 });
