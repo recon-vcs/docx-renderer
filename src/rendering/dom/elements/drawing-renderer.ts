@@ -55,12 +55,10 @@ export async function renderDrawing(
 	}
 
 	const isOverflow = await ctx.appendChildren(parent, oDrawing);
-	if (isOverflow === Overflow.SELF) {
-		oDrawing.dataset.overflow = Overflow.SELF;
-		return oDrawing;
-	}
-
-	oDrawing.dataset.overflow = await ctx.renderChildren(elem, oDrawing);
+	await ctx.runWithoutOverflowChecking(() => ctx.renderChildren(elem, oDrawing));
+	oDrawing.dataset.overflow = oDrawing.style.position === 'absolute'
+		? Overflow.SKIP
+		: isOverflow;
 	return oDrawing;
 }
 

@@ -71,6 +71,8 @@ interface RenderSession {
 	overflowContentElement?: HTMLElement;
 	/** Whether append operations should measure overflow. */
 	checkingOverflow: boolean;
+	/** Nested rendering scopes whose children must not trigger page splitting. */
+	overflowSuppressionDepth: number;
 	/** Maps parsed elements to their body source paths (replaces elem.sourcePath mutation). */
 	sourcePaths: WeakMap<OpenXmlElement, string>;
 }
@@ -164,6 +166,7 @@ export class HtmlRendererSync {
 			konvaLayer: layer,
 			overflowContentElement: undefined,
 			checkingOverflow: false,
+			overflowSuppressionDepth: 0,
 			sourcePaths,
 		};
 
@@ -320,6 +323,7 @@ export class HtmlRendererSync {
 			// core render operations
 			appendChildren: (p, c) => this.appendChildren(p, c),
 			appendChildrenWithoutOverflow: (p, c) => appendChildrenSync(p, c),
+			runWithoutOverflowChecking: callback => this.runWithoutOverflowChecking(callback),
 			renderChildren: (e, p) => this.renderChildren(e, p),
 			renderElements: (ch, p) => this.renderElements(ch, p),
 			renderElement: (e, p) => this.renderElement(e, p),
@@ -511,6 +515,17 @@ export class HtmlRendererSync {
 		const pageIndex = pages.findIndex(p => p.pageId === pageId);
 		type RenderAction = 'continue' | 'break' | 'break-after-current';
 		const BREAKING_OVERFLOWS = new Set([Overflow.SELF, Overflow.FULL, Overflow.PARTIAL]);
+		const markBreakIndex = (elem: OpenXmlElement, index: number) => {
+			if (topLevel) {
+				this.session.currentPage.breakIndex.add(index);
+				return;
+			}
+
+			if (elem.parent) {
+				if (!elem.parent.breakIndex) elem.parent.breakIndex = new Set();
+				elem.parent.breakIndex.add(index);
+			}
+		};
 
 		for (let i = 0; i < children.length; i++) {
 			const elem = children[i];
@@ -528,19 +543,19 @@ export class HtmlRendererSync {
 				switch (overflow) {
 					case Overflow.SELF:
 						elem.breakIndex.add(0);
-						this.session.currentPage.breakIndex.add(i);
+						markBreakIndex(elem, i);
 						removeElements(rendered, parent);
 						action = 'break';
 						break;
 
 					case Overflow.FULL:
-						this.session.currentPage.breakIndex.add(i);
+						markBreakIndex(elem, i);
 						if (elem.type !== DomType.Cell) removeElements(rendered, parent);
 						action = 'break';
 						break;
 
 					case Overflow.PARTIAL:
-						this.session.currentPage.breakIndex.add(i);
+						markBreakIndex(elem, i);
 						action = 'break';
 						break;
 
@@ -600,11 +615,23 @@ export class HtmlRendererSync {
 
 	private async appendChildren(parent: HTMLElement | Text, children: ChildrenType): Promise<Overflow> {
 		appendChildrenSync(parent, children);
+		if (this.session.overflowSuppressionDepth > 0) {
+			return Overflow.UNCHECKED;
+		}
 		return measurePageOverflow({
 			isSplit: this.session.currentPage.isSplit,
 			contentElement: this.session.overflowContentElement,
 			checkingOverflow: this.session.checkingOverflow,
 		});
+	}
+
+	private async runWithoutOverflowChecking<T>(callback: () => Promise<T>): Promise<T> {
+		this.session.overflowSuppressionDepth += 1;
+		try {
+			return await callback();
+		} finally {
+			this.session.overflowSuppressionDepth -= 1;
+		}
 	}
 
 	private async renderContainer(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, props?: Record<string, any>) {

@@ -11,6 +11,13 @@ export function isOverflowing(metrics: OverflowMetrics): boolean {
 
 export function measureElementOverflow(el: HTMLElement): boolean {
 	const currentOverflow = getComputedStyle(el).overflow;
+	const skippedElements = Array.from(el.querySelectorAll<HTMLElement>('[data-overflow="skip"]'));
+	const skippedDisplayValues = skippedElements.map(item => item.style.display);
+
+	for (const item of skippedElements) {
+		item.style.display = 'none';
+	}
+
 	if (!currentOverflow || currentOverflow === 'visible') {
 		el.style.overflow = 'hidden';
 	}
@@ -21,6 +28,9 @@ export function measureElementOverflow(el: HTMLElement): boolean {
 	});
 
 	el.style.overflow = currentOverflow;
+	for (let i = 0; i < skippedElements.length; i++) {
+		skippedElements[i].style.display = skippedDisplayValues[i];
+	}
 	return overflow;
 }
 

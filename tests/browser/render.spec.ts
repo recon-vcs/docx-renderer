@@ -148,4 +148,29 @@ test.describe('section and break smoke', () => {
 		expect(metrics.pageTexts.some(text => text.includes('UN'))).toBe(true);
 	});
 
+	test('a.docx keeps positioned drawing images visible after overflow', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'a');
+		const imageLikeCount = await page.getByRole('img').count();
+		const metrics = await page.evaluate(() => {
+			const pages = Array.from(document.querySelectorAll<HTMLElement>('section.docx'));
+			const htmlImages = Array.from(document.querySelectorAll<HTMLImageElement>('img'));
+
+			return {
+				pageCount: pages.length,
+				pageTexts: pages.map(renderedPage => renderedPage.querySelector('article')?.textContent?.trim() ?? ''),
+				imagesDecoded: htmlImages.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0),
+			};
+		});
+
+		expect(pageErrors).toEqual([]);
+		expect(metrics.pageCount).toBeGreaterThanOrEqual(1);
+		expect(imageLikeCount).toBeGreaterThanOrEqual(3);
+		expect(metrics.imagesDecoded).toBe(true);
+		expect(metrics.pageTexts[1]).toContain('６');
+		expect(metrics.pageTexts[1]).toContain('テキストボックス');
+	});
+
 });

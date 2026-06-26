@@ -51,6 +51,7 @@ export interface RenderContext {
 	// ── core render operations ────────────────────────────────────────────────
 	appendChildren(parent: HTMLElement | Text, children: ChildrenType): Promise<Overflow>;
 	appendChildrenWithoutOverflow(parent: Element | Text, children: ChildrenType): void;
+	runWithoutOverflowChecking<T>(callback: () => Promise<T>): Promise<T>;
 	renderChildren(elem: OpenXmlElement, parent: HTMLElement | Element | Text): Promise<Overflow>;
 	renderElements(children: OpenXmlElement[], parent: HTMLElement | Element | Text): Promise<Overflow>;
 	renderElement(elem: OpenXmlElement, parent?: HTMLElement | Element | Text): Promise<Node_DOM>;
