@@ -1,11 +1,11 @@
 import { IDomNumbering, NumberingPicBullet } from '@docx/ooxml/wordprocessingml/model/numbering-types';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil } from '@docx/xml/parsing/parse-utils';
-import type { ParseContext } from './parse-context';
+import type { NumberingParserContext } from './parse-context';
 
 export function parseNumberingFile(
 	xnums: Element,
-	ctx: ParseContext
+	ctx: NumberingParserContext
 ): IDomNumbering[] {
 	const result: IDomNumbering[] = [];
 	const mapping: Record<string, string> = {};
@@ -56,7 +56,7 @@ export function parseNumberingPicBullet(elem: Element): NumberingPicBullet {
 export function parseAbstractNumbering(
 	node: Element,
 	bullets: NumberingPicBullet[],
-	ctx: ParseContext
+	ctx: NumberingParserContext
 ): IDomNumbering[] {
 	const result: IDomNumbering[] = [];
 	const id = xml.attr(node, "abstractNumId");
@@ -81,7 +81,7 @@ export function parseNumberingLevel(
 	id: string,
 	node: Element,
 	bullets: NumberingPicBullet[],
-	ctx: ParseContext
+	ctx: NumberingParserContext
 ): IDomNumbering {
 	const result: IDomNumbering = {
 		id: id,

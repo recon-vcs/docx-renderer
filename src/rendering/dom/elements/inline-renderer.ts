@@ -5,7 +5,8 @@ import { DomType, OpenXmlElement, WmlCharacter, WmlHyperlink, WmlText, WrapType 
 import { IDomStyle } from '@docx/ooxml/wordprocessingml/document/model/style';
 import { SectionProperties } from '@docx/ooxml/wordprocessingml/document/model/section';
 import { CommonProperties } from '@docx/ooxml/wordprocessingml/document/model/common';
-import { Overflow, appendChildren, createElement } from '@docx/rendering/dom/core/dom-utils';
+import { appendChildren, createElement } from '@docx/rendering/dom/core/dom-utils';
+import { Overflow } from '@docx/rendering/measurement/overflow';
 import * as _ from 'lodash-es';
 
 interface Node_DOM extends Node, Text {

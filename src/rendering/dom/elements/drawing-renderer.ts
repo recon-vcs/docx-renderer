@@ -8,7 +8,8 @@ import type { Options } from '@docx/options';
 import { getPresetGeometryPaths } from '@docx/ooxml/drawingml/shapes/preset-geometry';
 import { VmlElement } from '@docx/ooxml/vml/vml';
 import { WordDocument } from '@docx/word-document';
-import { Overflow, appendChildren, createElement, createSvgElement } from '@docx/rendering/dom/core/dom-utils';
+import { appendChildren, createElement, createSvgElement } from '@docx/rendering/dom/core/dom-utils';
+import { Overflow } from '@docx/rendering/measurement/overflow';
 
 export interface DrawingRenderContext {
 	document: WordDocument;
@@ -157,8 +158,9 @@ export async function renderShape(
 		oText.style.position = 'relative';
 		oText.style.boxSizing = 'border-box';
 		oText.style.overflow = 'hidden';
-		oText.style.display = 'flex';
-		oText.style.flexDirection = 'column';
+			oText.style.display = 'flex';
+			oText.style.flexDirection = 'column';
+			oText.style.alignItems = 'flex-start';
 		oText.style.paddingLeft = textbox.paddingLeft ?? '';
 		oText.style.paddingTop = textbox.paddingTop ?? '';
 		oText.style.paddingRight = textbox.paddingRight ?? '';

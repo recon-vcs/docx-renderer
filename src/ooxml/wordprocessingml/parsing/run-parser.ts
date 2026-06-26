@@ -5,11 +5,11 @@ import { WmlCommentReference } from '@docx/ooxml/wordprocessingml/parts/comments
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
 import { parseDefaultProperties, parseSpacing } from './properties-parser';
-import type { ParseContext } from './parse-context';
+import type { RunParserContext } from './parse-context';
 
 export function parseRun(
 	node: Element,
-	ctx: ParseContext,
+	ctx: RunParserContext,
 ): WmlRun {
 	const wmlRun: WmlRun = {
 		type: DomType.Run,
@@ -164,7 +164,7 @@ export function parseCharacter(text: string): OpenXmlElement[] {
 export function parseRunProperties(
 	elem: Element,
 	run: WmlRun,
-	ctx: ParseContext,
+	ctx: RunParserContext,
 ): void {
 	parseDefaultProperties(elem, ctx.options, run.cssStyle = {}, null, c => {
 		switch (c.localName) {

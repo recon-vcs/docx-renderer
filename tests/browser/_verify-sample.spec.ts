@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 interface DocxGlobal {
-	renderSync(data: Blob, bodyContainer: HTMLElement, styleContainer: HTMLElement, options?: Record<string, unknown>): Promise<unknown>;
+	renderSync(data: Blob, bodyContainer: HTMLElement, styleContainer: HTMLElement, options?: Record<string, unknown>): Promise<{ dispose(): void }>;
 }
 
 type HarnessWindow = Window & typeof globalThis & { docx: DocxGlobal };
@@ -18,18 +18,18 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 	const result = await page.evaluate(async () => {
 		const response = await fetch('/tests/fixtures/zz-sample-analyze.docx');
 		const blob = await response.blob();
-		const body = document.querySelector<HTMLElement>('#document-container')!;
-		const styleContainer = document.querySelector<HTMLElement>('#style-container')!;
-		const docx = (window as unknown as HarnessWindow).docx;
-		await docx.renderSync(blob, body, styleContainer, { breakPages: true });
-		const sections = Array.from(document.querySelectorAll('section.docx-wrapper, section[class*="docx"]'));
+			const body = document.querySelector<HTMLElement>('#document-container')!;
+			const styleContainer = document.querySelector<HTMLElement>('#style-container')!;
+			const docx = (window as unknown as HarnessWindow).docx;
+			const renderResult = await docx.renderSync(blob, body, styleContainer, { breakPages: true });
+			const sections = Array.from(document.querySelectorAll('section.docx-wrapper, section[class*="docx"]'));
 		const mathParagraphs = Array.from(document.querySelectorAll<HTMLElement>('.docx-math-paragraph'));
 		const mathElements = Array.from(document.querySelectorAll<HTMLElement>('math'));
 		const images = Array.from(document.querySelectorAll<HTMLImageElement>('img'));
 		const textboxes = Array.from(document.querySelectorAll<HTMLElement>('.docx-textbox'));
 
-		return {
-			pageCount: sections.length,
+			const result = {
+				pageCount: sections.length,
 			hasMathML: !!document.querySelector('math'),
 			invalidMathWrappers: document.querySelectorAll('math mo > mrow, math mo > mn, math mo > ms').length,
 			stringLiteralMathTokens: document.querySelectorAll('math ms').length,
@@ -55,8 +55,8 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 				complete: el.complete,
 				naturalWidth: el.naturalWidth,
 				naturalHeight: el.naturalHeight,
-			})),
-			textboxes: textboxes.map(el => {
+				})),
+				textboxes: textboxes.map(el => {
 				const style = getComputedStyle(el);
 				return {
 					boxSizing: style.boxSizing,
@@ -67,9 +67,11 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 					paddingBottom: style.paddingBottom,
 					alignItems: style.alignItems,
 				};
-			}),
-		};
-	});
+				}),
+			};
+			renderResult.dispose();
+			return result;
+		});
 
 	console.log('RESULT:', JSON.stringify(result, null, 2));
 	await page.screenshot({ path: 'test-results/zz-sample-full.png', fullPage: true });

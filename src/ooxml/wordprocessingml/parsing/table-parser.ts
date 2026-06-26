@@ -1,11 +1,11 @@
 import { DomType, OpenXmlElement, WmlTable, WmlTableCell, WmlTableColumn, WmlTableRow } from '@docx/ooxml/wordprocessingml/document/model/dom';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
-import type { ParseContext } from './parse-context';
+import type { TableParserContext } from './parse-context';
 
 export function parseTable(
 	node: Element,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): WmlTable {
 	const result: WmlTable = { type: DomType.Table, children: [] };
 
@@ -33,7 +33,7 @@ export function parseTable(
 	return result;
 }
 
-export function parseTableColumns(node: Element, ctx: ParseContext): WmlTableColumn[] {
+export function parseTableColumns(node: Element, ctx: TableParserContext): WmlTableColumn[] {
 	const result: WmlTableColumn[] = [];
 
 	xmlUtil.foreach(node, n => {
@@ -59,7 +59,7 @@ export function parseTableColumns(node: Element, ctx: ParseContext): WmlTableCol
 export function parseTableProperties(
 	elem: Element,
 	table: WmlTable,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): void {
 	table.cssStyle = {};
 	table.cellStyle = {};
@@ -117,7 +117,7 @@ export function parseTableProperties(
 export function parseTablePosition(
 	node: Element,
 	table: WmlTable,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): void {
 	// Floating tables displace subsequent elements; ignored by default
 	if (ctx.options.ignoreTableWrap) {
@@ -138,7 +138,7 @@ export function parseTablePosition(
 
 export function parseTableRow(
 	node: Element,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): WmlTableRow {
 	const result: WmlTableRow = { type: DomType.Row, children: [] };
 
@@ -165,7 +165,7 @@ export function parseTableRow(
 export function parseTableRowProperties(
 	elem: Element,
 	row: WmlTableRow,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): void {
 	row.cssStyle = ctx.parseDefaultProperties(elem, {}, null, c => {
 		switch (c.localName) {
@@ -188,7 +188,7 @@ export function parseTableRowProperties(
 
 export function parseTableCell(
 	node: Element,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): OpenXmlElement {
 	const result: WmlTableCell = { type: DomType.Cell, children: [] };
 
@@ -219,7 +219,7 @@ export function parseTableCell(
 export function parseTableCellProperties(
 	elem: Element,
 	cell: WmlTableCell,
-	ctx: ParseContext
+	ctx: TableParserContext
 ): void {
 	cell.cssStyle = ctx.parseDefaultProperties(elem, {}, null, c => {
 		switch (c.localName) {

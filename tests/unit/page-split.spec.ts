@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DomType, OpenXmlElement } from '../../src/ooxml/wordprocessingml/document/model/dom';
-import { Page } from '../../src/ooxml/wordprocessingml/document/model/page';
+import { Page } from '../../src/rendering/pagination/model/page';
 import { SectionProperties } from '../../src/ooxml/wordprocessingml/document/model/section';
 import { LayoutRegion } from '../../src/rendering/pagination/model/layout-region';
 import { splitRegionOnOverflow } from '../../src/rendering/pagination/model/page-split';

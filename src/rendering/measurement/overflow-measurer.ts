@@ -1,4 +1,4 @@
-import { appendChildren as appendChildrenUtil, Overflow, ChildrenType } from '@docx/rendering/dom/core/dom-utils';
+import { Overflow } from './overflow';
 
 export interface OverflowMetrics {
 	clientHeight: number;
@@ -30,13 +30,7 @@ export interface PageOverflowState {
 	checkingOverflow?: boolean;
 }
 
-/** Appends children to parent, then measures overflow against the page content element. */
-export function appendAndMeasure(
-	parent: HTMLElement | Text,
-	children: ChildrenType,
-	pageState: PageOverflowState,
-): Overflow {
-	appendChildrenUtil(parent, children);
+export function measurePageOverflow(pageState: PageOverflowState): Overflow {
 	if (pageState.isSplit) return Overflow.UNKNOWN;
 	if (pageState.checkingOverflow && pageState.contentElement) {
 		return measureElementOverflow(pageState.contentElement) ? Overflow.TRUE : Overflow.FALSE;

@@ -8,11 +8,11 @@ import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
 import { parseDefaultProperties } from './properties-parser';
 import { parseSdt } from './content-parser';
-import type { ParseContext } from './parse-context';
+import type { ParagraphParserContext } from './parse-context';
 
 export function parseInserted(
 	node: Element,
-	ctx: ParseContext,
+	ctx: ParagraphParserContext,
 ): OpenXmlElement {
 	const wmlInserted: OpenXmlElement = {
 		type: DomType.Inserted,
@@ -35,7 +35,7 @@ export function parseInserted(
 // TODO
 export function parseDeleted(
 	node: Element,
-	ctx: ParseContext,
+	ctx: ParagraphParserContext,
 ): OpenXmlElement {
 	const wmlDeleted: OpenXmlElement = {
 		type: DomType.Deleted,
@@ -57,7 +57,7 @@ export function parseDeleted(
 
 export function parseParagraph(
 	node: Element,
-	ctx: ParseContext,
+	ctx: ParagraphParserContext,
 ): WmlParagraph {
 	const wmlParagraph: WmlParagraph = {
 		type: DomType.Paragraph,
@@ -136,7 +136,7 @@ export function parseParagraph(
 export function parseParagraphProperties(
 	elem: Element,
 	paragraph: WmlParagraph,
-	ctx: ParseContext,
+	ctx: ParagraphParserContext,
 ): void {
 	parseDefaultProperties(elem, ctx.options, paragraph.cssStyle = {}, null, c => {
 		if (parseParagraphProperty(c, paragraph.props, xml)) {
@@ -175,7 +175,7 @@ export function parseFrame(node: Element, paragraph: WmlParagraph): void {
 
 export function parseHyperlink(
 	node: Element,
-	ctx: ParseContext,
+	ctx: ParagraphParserContext,
 ): WmlHyperlink {
 	const wmlHyperlink: WmlHyperlink = <WmlHyperlink>{
 		type: DomType.Hyperlink,

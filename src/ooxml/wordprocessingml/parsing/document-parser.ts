@@ -120,12 +120,11 @@ export class DocumentParser {
 	}
 
 	parseDocumentFile(xmlDoc: Element): DocumentElement {
-		const documentElement: DocumentElement = {
-			uuid: 'root',
-			pages: [],
-			sectProps: {} as SectionProperties,
-			type: DomType.Document,
-		};
+			const documentElement: DocumentElement = {
+				uuid: 'root',
+				sectProps: {} as SectionProperties,
+				type: DomType.Document,
+			};
 		// background color
 		const background = xml.element(xmlDoc, "background");
 		documentElement.cssStyle = background ? this.parseBackground(background) : {};

@@ -1,7 +1,7 @@
 import { DocumentParser } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
 import { HtmlRendererSync } from '@docx/html-renderer-sync';
 import { resolveOptions, type DocumentSource, type Options } from '@docx/options';
-import { createRenderResult, RenderResult } from '@docx/render-result';
+import { createRenderResult, disposeRenderResult, RenderResult } from '@docx/render-result';
 import { WordDocument } from '@docx/word-document';
 
 /** Parses a docx file into a WordDocument model without rendering it. */
@@ -19,6 +19,7 @@ export async function renderDocument(
 ): Promise<RenderResult> {
 	const ops = resolveOptions(userOptions);
 	const renderer = new HtmlRendererSync();
+	disposeRenderResult(bodyContainer);
 	await renderer.render(document, bodyContainer, styleContainer ?? undefined, ops);
 	return createRenderResult(document, bodyContainer, ops.className);
 }

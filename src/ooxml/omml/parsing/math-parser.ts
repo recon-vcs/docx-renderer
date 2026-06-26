@@ -3,7 +3,7 @@ import type { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil } from '@docx/xml/parsing/parse-utils';
 import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
-import type { ParseContext } from '@docx/ooxml/wordprocessingml/parsing/parse-context';
+import type { MathParserContext } from '@docx/ooxml/wordprocessingml/parsing/parse-context';
 
 const mmlTagMap: Record<string, DomType> = {
 	"oMath": DomType.MmlMath,
@@ -35,7 +35,7 @@ const mmlTagMap: Record<string, DomType> = {
 
 export function parseMathElement(
 	elem: Element,
-	ctx: ParseContext,
+	ctx: MathParserContext,
 ): OpenXmlElement {
 	const propsTag = `${elem.localName}Pr`;
 	const mathElement: OpenXmlElement = {

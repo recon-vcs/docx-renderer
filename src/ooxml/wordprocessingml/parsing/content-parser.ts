@@ -1,13 +1,13 @@
 import { WmlComment } from '@docx/ooxml/wordprocessingml/parts/comments/elements';
 import { OpenXmlElement } from '@docx/ooxml/wordprocessingml/document/model/dom';
 import xml from '@docx/xml/parsing/xml-parser';
-import type { ParseContext } from './parse-context';
+import type { BodyParserContext } from './parse-context';
 
 type NoteConstructor<T> = new () => T;
 
 export function parseSdt(
 	node: Element,
-	ctx: ParseContext
+	ctx: BodyParserContext
 ): OpenXmlElement[] {
 	const sdtContent = xml.element(node, "sdtContent");
 	return sdtContent ? ctx.parseBodyElements(sdtContent) : [];
@@ -17,7 +17,7 @@ export function parseNotes<T extends { id?: string; noteType?: string; children?
 	xmlDoc: Element,
 	elemName: string,
 	elemClass: NoteConstructor<T>,
-	ctx: ParseContext
+	ctx: BodyParserContext
 ): T[] {
 	const result: T[] = [];
 
@@ -34,7 +34,7 @@ export function parseNotes<T extends { id?: string; noteType?: string; children?
 
 export function parseComments(
 	xmlDoc: Element,
-	ctx: ParseContext
+	ctx: BodyParserContext
 ): WmlComment[] {
 	const result: WmlComment[] = [];
 

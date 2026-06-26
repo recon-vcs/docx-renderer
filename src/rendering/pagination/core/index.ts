@@ -1,4 +1,5 @@
 export * from '@docx/rendering/pagination/model/layout-region';
+export * from '@docx/rendering/pagination/model/page';
 export * from '@docx/rendering/pagination/model/section-stream';
 export * from '@docx/rendering/pagination/model/breaks';
 export * from '@docx/rendering/pagination/core/page-builder';
@@ -8,3 +9,4 @@ export * from '@docx/rendering/pagination/core/modern-page-splitter';
 export * from '@docx/rendering/pagination/model/explicit-breaks';
 export * from '@docx/rendering/pagination/core/pagination';
 export * from '@docx/rendering/pagination/model/page-split';
+export * from '@docx/rendering/pagination/model/split-by-break';

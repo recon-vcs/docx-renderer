@@ -4,7 +4,7 @@ import { xmlUtil } from '@docx/xml/parsing/parse-utils';
 import { convertLength, LengthUsage } from '@docx/ooxml/wordprocessingml/document/model/common';
 import { parseVmlElement } from '@docx/ooxml/vml/vml';
 import { parseGraphic } from '@docx/ooxml/drawingml/parsing/shape-parser';
-import type { ParseContext } from '@docx/ooxml/wordprocessingml/parsing/parse-context';
+import type { DrawingParserContext } from '@docx/ooxml/wordprocessingml/parsing/parse-context';
 
 const supportedNamespaceURIs = [
 	"http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
@@ -24,7 +24,7 @@ function normalizeWrapText(wrapText: string | undefined, posX?: { align?: string
 
 export function parseVmlPicture(
 	elem: Element,
-	ctx: ParseContext
+	ctx: DrawingParserContext
 ): OpenXmlElement {
 	const result = { type: DomType.VmlPicture, children: [] as OpenXmlElement[] };
 
@@ -59,7 +59,7 @@ export function checkAlternateContent(elem: Element): Element {
 
 export function parseDrawing(
 	node: Element,
-	ctx: ParseContext
+	ctx: DrawingParserContext
 ): OpenXmlElement {
 	for (const n of xml.elements(node)) {
 		switch (n.localName) {
@@ -78,7 +78,7 @@ export function parseDrawing(
 // DrawingML对象有两种状态：内联（inline）-- 对象与文本对齐，浮动（anchor）--对象在文本中浮动，但可以相对于页面进行绝对定位
 export function parseDrawingWrapper(
 	node: Element,
-	ctx: ParseContext
+	ctx: DrawingParserContext
 ): OpenXmlElement {
 	// 是否布局在表格中
 	const layoutInCell = xml.boolAttr(node, "layoutInCell");

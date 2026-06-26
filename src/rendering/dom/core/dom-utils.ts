@@ -1,23 +1,5 @@
 import { OpenXmlElement, DomType } from '@docx/ooxml/wordprocessingml/model/element';
 
-// Overflow states for page-break detection
-export enum Overflow {
-	// Already overflowed
-	TRUE = 'true',
-	// Not overflowed
-	FALSE = 'false',
-	// After inserting element, the element itself overflows due to CSS
-	SELF = 'self',
-	// After inserting element's children, all children overflow
-	FULL = 'full',
-	// After inserting element's children, some children overflow
-	PART = 'part',
-	// Overflow detection not yet performed
-	UNKNOWN = 'undetected',
-	// Overflow detection ignored
-	IGNORE = 'ignore',
-}
-
 export type ChildrenType = Node[] | Node | Element[] | Element | string[] | string;
 
 // Create an HTML element by tag name

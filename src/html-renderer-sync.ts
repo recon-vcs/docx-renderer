@@ -4,9 +4,10 @@ import type { Options } from '@docx/options';
 import { DocumentElement } from '@docx/ooxml/wordprocessingml/document/model/document';
 import * as _ from 'lodash-es';
 import { computePointToPixelRatio, updateTabStop } from '@docx/javascript';
+import type { TabStop } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
 import { FontTablePart } from '@docx/ooxml/wordprocessingml/parts/font-table/font-table';
 import { FooterHeaderReference, SectionProperties } from '@docx/ooxml/wordprocessingml/document/model/section';
-import { Page, PageProps } from '@docx/ooxml/wordprocessingml/document/model/page';
+import { Page, PageProps } from '@docx/rendering/pagination/model/page';
 import { WmlFieldSimple } from '@docx/ooxml/wordprocessingml/document/model/fields';
 import { IDomStyle } from '@docx/ooxml/wordprocessingml/document/model/style';
 import { WmlBaseNote, WmlEndnote, WmlEndnotes, WmlFootnote, WmlFootnotes } from '@docx/ooxml/wordprocessingml/parts/notes/elements';
@@ -14,8 +15,9 @@ import { ThemePart } from '@docx/ooxml/drawingml/theme/theme-part';
 import { Part } from '@docx/opc/parts/part';
 import type { Stage } from 'konva/lib/Stage';
 import type { Layer } from 'konva/lib/Layer';
-import { Overflow, ChildrenType, createElement, createElementNS, removeAllElements, appendChildren as appendChildrenSync, removeElements, createStyleElement, appendComment, Node_DOM } from '@docx/rendering/dom/core/dom-utils';
-import { appendAndMeasure, inferOverflow } from '@docx/rendering/measurement/overflow-measurer';
+import { ChildrenType, createElement, createElementNS, removeAllElements, appendChildren as appendChildrenSync, removeElements, createStyleElement, appendComment, Node_DOM } from '@docx/rendering/dom/core/dom-utils';
+import { measurePageOverflow, inferOverflow } from '@docx/rendering/measurement/overflow-measurer';
+import { Overflow } from '@docx/rendering/measurement/overflow';
 import { splitOnOverflow, splitRegionOnOverflow } from '@docx/rendering/pagination/model/page-split';
 import { buildPageLayoutContexts, type PageLayoutContext } from '@docx/rendering/pagination/model/page-numbering';
 import { TableContext } from '@docx/rendering/dom/elements/table-renderer';
@@ -38,8 +40,15 @@ interface RenderSplitContext {
 	regionIndex: number;
 }
 
+interface PendingTabStop {
+	stops?: TabStop[];
+	span: HTMLElement;
+}
+
 /** All mutable state that is created fresh for each render() call. */
 interface RenderSession {
+	/** Pages produced and mutated during the current render. */
+	pages: Page[];
 	/** The page currently being rendered. Advances as overflow splits pages. */
 	currentPage: Page;
 	/** The OPC Part that owns currently-rendered content (changes per header/footer/drawing). */
@@ -51,13 +60,17 @@ interface RenderSession {
 	/** Table cell position and vertical-merge stacks for nested tables. */
 	tableCtx: TableContext;
 	/** Header/footer Parts that have already been rendered (to avoid double-registering). */
-	usedHeaderFooterParts: any[];
+	usedHeaderFooterParts: string[];
 	/** Tab-stop spans queued for post-render measurement. */
-	currentTabs: any[];
+	currentTabs: PendingTabStop[];
 	/** Konva stage used for image clipping/transforms. Destroyed after render. */
 	konvaStage: Stage;
 	/** Konva layer paired with konvaStage. */
 	konvaLayer: Layer;
+	/** DOM element currently measured for page overflow. */
+	overflowContentElement?: HTMLElement;
+	/** Whether append operations should measure overflow. */
+	checkingOverflow: boolean;
 }
 
 export class HtmlRendererSync {
@@ -130,8 +143,9 @@ export class HtmlRendererSync {
 		}
 
 		const { stage, layer } = createKonvaFn(this.bodyContainer);
-		this.session = {
-			currentPage: null,
+			this.session = {
+				pages: [],
+				currentPage: null,
 			currentPart: null,
 			currentFootnoteIds: [],
 			currentEndnoteIds: [],
@@ -143,9 +157,11 @@ export class HtmlRendererSync {
 			},
 			usedHeaderFooterParts: [],
 			currentTabs: [],
-			konvaStage: stage,
-			konvaLayer: layer,
-		};
+				konvaStage: stage,
+				konvaLayer: layer,
+				overflowContentElement: undefined,
+				checkingOverflow: false,
+			};
 
 		await this.renderPages(document.documentPart.body);
 
@@ -300,8 +316,8 @@ export class HtmlRendererSync {
 		} else {
 			pages = [new Page({ isSplit: true, sectProps: document.sectProps, children: document.children, } as PageProps)];
 		}
-		document.pages = pages;
-		let prevProps = null;
+			this.session.pages = pages;
+			let prevProps = null;
 		let origin_pages = [...pages];
 		for (let i = 0; i < origin_pages.length; i++) {
 			this.session.currentFootnoteIds = [];
@@ -310,8 +326,8 @@ export class HtmlRendererSync {
 			page.sectProps = sectProps ?? document.sectProps;
 			page.isFirstPage = page.layoutContext?.isFirstSectionPage ?? prevProps != page.sectProps;
 			page.isLastPage = i === origin_pages.length - 1;
-			page.checkingOverflow = false;
-			this.session.currentPage = page;
+				this.session.checkingOverflow = false;
+				this.session.currentPage = page;
 			prevProps = page.sectProps;
 			await this.renderPage();
 		}
@@ -324,7 +340,7 @@ export class HtmlRendererSync {
 
 		renderStyleValues(this.document.documentPart.body.cssStyle, pageElement);
 
-		const pages = this.document.documentPart.body.pages;
+			const pages = this.session.pages;
 		const pageIndex = pages.findIndex((page) => page.pageId === pageId);
 
 		let oHeader: HTMLElement = null;
@@ -358,8 +374,8 @@ export class HtmlRendererSync {
 				regionArticle.dataset.sectionId = region.section?.sectionId;
 				regionArticle.dataset.breakBefore = region.breakBefore;
 				pageElement.appendChild(regionArticle);
-				this.session.currentPage.contentElement = pageElement;
-				this.session.currentPage.checkingOverflow = this.options.breakPages;
+					this.session.overflowContentElement = pageElement;
+					this.session.checkingOverflow = this.options.breakPages;
 				isOverflow = await this.renderElements(region.children, regionArticle, { regionIndex });
 				if (isOverflow !== Overflow.FALSE && isOverflow !== Overflow.UNKNOWN && isOverflow !== Overflow.IGNORE) {
 					break;
@@ -369,24 +385,24 @@ export class HtmlRendererSync {
 				this.session.currentPage.isSplit = true;
 				pages[pageIndex] = this.session.currentPage;
 			}
-			this.session.currentPage.checkingOverflow = false;
-		} else {
+				this.session.checkingOverflow = false;
+			} else {
 			const contentElement = this.createPageContent(sectProps);
 			if (this.options.breakPages) {
 				contentElement.style.height = `${contentHeight}pt`;
 			} else {
 				contentElement.style.minHeight = `${contentHeight}pt`;
 			}
-			this.session.currentPage.contentElement = contentElement;
-			pageElement.appendChild(contentElement);
-			this.session.currentPage.checkingOverflow = true;
+				pageElement.appendChild(contentElement);
+				this.session.overflowContentElement = contentElement;
+				this.session.checkingOverflow = true;
 			const is_overflow = await this.renderElements(children, contentElement);
 			if (is_overflow === Overflow.FALSE) {
 				this.session.currentPage.isSplit = true;
 				pages[pageIndex] = this.session.currentPage;
 			}
-			this.session.currentPage.checkingOverflow = false;
-		}
+				this.session.checkingOverflow = false;
+			}
 
 		if (this.options.renderFootnotes) {
 			await this.renderNotes(DomType.Footnotes, this.session.currentFootnoteIds, this.footnoteMap, pageElement);
@@ -433,7 +449,7 @@ export class HtmlRendererSync {
 
 	private async renderElements(children: OpenXmlElement[], parent: HTMLElement | Element | Text, splitContext?: RenderSplitContext): Promise<Overflow> {
 		const overflows: Overflow[] = [];
-		const pages = this.document.documentPart.body.pages;
+			const pages = this.session.pages;
 		const { pageId } = this.session.currentPage;
 		const pageIndex = pages.findIndex(p => p.pageId === pageId);
 		type RenderAction = 'continue' | 'break' | 'break-after-current';
@@ -550,7 +566,12 @@ export class HtmlRendererSync {
 	}
 
 	private async appendChildren(parent: HTMLElement | Text, children: ChildrenType): Promise<Overflow> {
-		return appendAndMeasure(parent, children, this.session.currentPage);
+		appendChildrenSync(parent, children);
+		return measurePageOverflow({
+			isSplit: this.session.currentPage.isSplit,
+			contentElement: this.session.overflowContentElement,
+			checkingOverflow: this.session.checkingOverflow,
+		});
 	}
 
 	private async renderContainer(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, props?: Record<string, any>) {
@@ -595,10 +616,10 @@ export class HtmlRendererSync {
 			renderText: (e, p) => renderTextFn(e, p, this.inlineCallbacks()),
 			findComment: (id) => this.document.commentsPart?.commentMap[id],
 			currentPageNumber: () => {
-				const pages = this.document.documentPart.body.pages ?? [];
-				return pages.findIndex(p => p.pageId === this.session.currentPage.pageId) + 1;
-			},
-			pageCount: () => this.document.documentPart.body.pages?.length ?? 0,
+					const pages = this.session.pages ?? [];
+					return pages.findIndex(p => p.pageId === this.session.currentPage.pageId) + 1;
+				},
+				pageCount: () => this.session.pages?.length ?? 0,
 			renderChanges: () => this.options.renderChanges,
 		};
 	}

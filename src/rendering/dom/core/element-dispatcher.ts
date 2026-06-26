@@ -1,11 +1,13 @@
 import { BreakType, DomType, OpenXmlElement, WmlBreak, WmlCharacter, WmlDrawing, WmlHyperlink, WmlImage, WmlLastRenderedPageBreak, WmlNoteReference, WmlSectionBreak, WmlSymbol, WmlTableCell, WmlTableRow, WmlText, } from '@docx/ooxml/wordprocessingml/document/model/dom';
 import { WmlTable } from '@docx/ooxml/wordprocessingml/model/table';
 import { WmlParagraph } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
+import type { TabStop } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
 import { WmlBookmarkStart } from '@docx/ooxml/wordprocessingml/document/model/bookmarks';
 import { WmlFieldSimple } from '@docx/ooxml/wordprocessingml/document/model/fields';
 import { WmlCommentRangeStart, WmlCommentReference } from '@docx/ooxml/wordprocessingml/parts/comments/elements';
 import { VmlElement } from '@docx/ooxml/vml/vml';
-import { Overflow, ChildrenType, createElement, appendChildren, findParent, Node_DOM } from './dom-utils';
+import { ChildrenType, createElement, appendChildren, findParent, Node_DOM } from './dom-utils';
+import { Overflow } from '@docx/rendering/measurement/overflow';
 import { TableContext, renderTable as renderTableFn, renderTableRow as renderTableRowFn, renderTableCell as renderTableCellFn } from '@docx/rendering/dom/elements/table-renderer';
 import { renderFootnoteReference as renderFootnoteReferenceFn, renderEndnoteReference as renderEndnoteReferenceFn } from '@docx/rendering/dom/elements/notes-renderer';
 import { MathRendererCallbacks, renderMmlMathParagraph as renderMmlMathParagraphFn, renderMmlRadical as renderMmlRadicalFn, renderMmlDelimiter as renderMmlDelimiterFn, renderMmlNary as renderMmlNaryFn, renderMmlPreSubSuper as renderMmlPreSubSuperFn, renderMmlGroupChar as renderMmlGroupCharFn, renderMmlBar as renderMmlBarFn, renderMmlRun as renderMmlRunFn, renderMllList as renderMllListFn } from '@docx/rendering/dom/elements/math-renderer';
@@ -32,7 +34,7 @@ export interface ElementDispatchContext {
 	drawingRenderContext(): DrawingRenderContext;
 	tableCtx: TableContext;
 	className: string;
-	currentTabs: Array<{ stops: any; span: HTMLElement }>;
+	currentTabs: Array<{ stops?: TabStop[]; span: HTMLElement }>;
 	currentFootnoteIds: string[];
 	currentEndnoteIds: string[];
 	renderClass(elem: OpenXmlElement, output: HTMLElement | Element): void;

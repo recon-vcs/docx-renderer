@@ -4,11 +4,11 @@ import { parseRunProperties } from '@docx/ooxml/wordprocessingml/document/model/
 import { parseLineSpacing } from '@docx/ooxml/wordprocessingml/document/model/spacing-between-lines';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil } from '@docx/xml/parsing/parse-utils';
-import type { ParseContext } from './parse-context';
+import type { StyleParserContext } from './parse-context';
 
 export function parseStylesFile(
 	xstyles: Element,
-	ctx: ParseContext
+	ctx: StyleParserContext
 ): IDomStyle[] {
 	const result: IDomStyle[] = [];
 
@@ -34,7 +34,7 @@ export function parseStylesFile(
 
 export function parseDefaultStyles(
 	node: Element,
-	ctx: ParseContext
+	ctx: StyleParserContext
 ): IDomStyle {
 	const result = <IDomStyle>{
 		basedOn: null,
@@ -83,7 +83,7 @@ export function parseDefaultStyles(
 
 export function parseStyle(
 	node: Element,
-	ctx: ParseContext
+	ctx: StyleParserContext
 ): IDomStyle {
 	const result: IDomStyle = <IDomStyle>{
 		basedOn: null,
@@ -283,7 +283,7 @@ export function parseStyle(
 // TODO: multi-level nested table style rules are not yet applied
 export function parseTableStyle(
 	node: Element,
-	ctx: ParseContext
+	ctx: StyleParserContext
 ): Ruleset[] {
 	const result: Ruleset[] = [];
 

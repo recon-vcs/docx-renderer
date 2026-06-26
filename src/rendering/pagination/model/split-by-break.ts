@@ -1,4 +1,4 @@
-import { DomType, OpenXmlElement, WmlTableRow, WmlTableCell } from '@docx/ooxml/wordprocessingml/document/model/dom';
+import { DomType, OpenXmlElement, WmlTableCell, WmlTableRow } from '@docx/ooxml/wordprocessingml/document/model/dom';
 import * as _ from 'lodash-es';
 
 function isSplitParagraph(elem: OpenXmlElement): boolean {

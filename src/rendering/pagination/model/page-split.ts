@@ -1,9 +1,9 @@
 import { OpenXmlElement } from '@docx/ooxml/wordprocessingml/document/model/dom';
-import { Page, PageProps } from '@docx/ooxml/wordprocessingml/document/model/page';
+import { Page, PageProps } from './page';
 import { SectionProperties } from '@docx/ooxml/wordprocessingml/document/model/section';
 import { LayoutRegion, PhysicalPage } from '@docx/rendering/pagination/model/layout-region';
 import { PageLayoutContext } from '@docx/rendering/pagination/model/page-numbering';
-import { splitElementsByBreakIndex } from '@docx/rendering/dom/core/split-by-break';
+import { splitElementsByBreakIndex } from './split-by-break';
 
 export interface PageSplitResult {
 	updatedCurrentPage: Page;
@@ -95,7 +95,6 @@ export function splitOnOverflow(
 	const nextPage = makeNextPage(currentPage, pageIndex, nextPageChildren);
 	splitElementsByBreakIndex(currentPage, nextPage);
 	currentPage.isSplit = true;
-	currentPage.checkingOverflow = false;
 	pages[pageIndex] = currentPage;
 	pages.splice(pageIndex + 1, 0, nextPage);
 	return { updatedCurrentPage: currentPage, nextPage, nextPageIndex: pageIndex + 1 };
@@ -159,7 +158,6 @@ export function splitRegionOnOverflow(
 	);
 
 	currentPage.isSplit = true;
-	currentPage.checkingOverflow = false;
 	currentPage.physicalPage = currentPage.layoutContext
 		? buildPhysicalPage(currentRegions, currentPage.layoutContext)
 		: currentPage.physicalPage;

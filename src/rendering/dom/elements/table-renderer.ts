@@ -1,7 +1,8 @@
 import { OpenXmlElement } from '@docx/ooxml/wordprocessingml/model/element';
 import { WmlTable, WmlTableCell, WmlTableColumn } from '@docx/ooxml/wordprocessingml/model/table';
 import { uuid } from '@docx/shared/utils';
-import { Overflow, ChildrenType, createElement, appendChildren } from '@docx/rendering/dom/core/dom-utils';
+import { ChildrenType, createElement, appendChildren } from '@docx/rendering/dom/core/dom-utils';
+import { Overflow } from '@docx/rendering/measurement/overflow';
 
 export interface CellPos {
 	col: number;

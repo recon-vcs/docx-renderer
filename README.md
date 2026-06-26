@@ -7,11 +7,10 @@ renders them as paginated HTML directly into a DOM container. It is the document
 preview engine of the [Recon](https://github.com/recon-vcs) project and is being
 evolved into a standalone, publishable npm library.
 
-> **Status: 0.x — the public API is being redesigned.** The current
-> `renderSync` / `renderAsync` entry points are inherited from upstream and will
-> change in an upcoming release (structured `RenderResult` with page handles,
-> source maps and an overlay layer). Pin an exact version if you depend on the
-> current shape.
+> **Status: 0.x — the public API may still change.** `renderSync` and
+> `renderDocument` currently return a structured `RenderResult` with page
+> handles, source maps, overlays, and an explicit `dispose()` lifecycle.
+> Pin an exact version if you depend on the current shape.
 
 ## Origin and credits
 
@@ -46,7 +45,7 @@ const style = document.getElementById("style-container");
 
 // Parses the document and renders paginated HTML into `body`.
 const result = await renderSync(blob, body, style, { breakPages: true });
-// Call result.overlay.dispose() when done to release observers.
+// Call result.dispose() when done to release observers.
 ```
 
 ### Browser global (UMD)
@@ -60,7 +59,9 @@ is then available as the global `docx`:
 <script src="https://cdn.jsdelivr.net/npm/konva@9.3.6/konva.min.js"></script>
 <script src="docx-vellum.umd.js"></script>
 <script>
-  docx.renderSync(blob, document.getElementById("container"));
+  docx.renderSync(blob, document.getElementById("container")).then((result) => {
+    result.dispose();
+  });
 </script>
 ```
 
@@ -78,9 +79,8 @@ See the `Options` interface in `src/docx-preview.ts` for all rendering flags
 
 ## Demo
 
-`docs/index.html` (renderSync) and `docs/renderAsync.html` (renderAsync) are
-static demo pages. Build first, then serve the repository root with any static
-file server and open the pages:
+`docs/index.html` is a static `renderSync` demo page. Build first, then serve
+the repository root with any static file server and open the page:
 
 ```bash
 npm run build

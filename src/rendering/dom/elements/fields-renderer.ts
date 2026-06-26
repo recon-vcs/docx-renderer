@@ -3,7 +3,8 @@ import { DomType, OpenXmlElement, WmlCharacter, WmlText } from '@docx/ooxml/word
 import { WmlFieldChar, WmlFieldSimple, WmlInstructionText } from '@docx/ooxml/wordprocessingml/document/model/fields';
 import { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
 import { WmlCommentRangeStart, WmlCommentReference } from '@docx/ooxml/wordprocessingml/parts/comments/elements';
-import { ChildrenType, createElement, Overflow } from '@docx/rendering/dom/core/dom-utils';
+import { ChildrenType, createElement } from '@docx/rendering/dom/core/dom-utils';
+import { Overflow } from '@docx/rendering/measurement/overflow';
 
 export interface FieldsRendererCallbacks {
 	processElement(elem: OpenXmlElement): void;
