@@ -415,7 +415,7 @@ export async function dispatchElement(
 		case DomType.MmlDegree:
 		case DomType.MmlSuperArgument:
 		case DomType.MmlSubArgument:
-			oNode = await ctx.renderContainerNS(elem, ns.mathML, 'mn');
+			oNode = await ctx.renderContainerNS(elem, ns.mathML, 'mrow');
 			// 作为子元素插入,忽略溢出检测
 			if (parent) {
 				appendChildren(parent, oNode);

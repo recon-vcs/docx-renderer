@@ -8,9 +8,10 @@ type HarnessWindow = Window & typeof globalThis & { docx: DocxGlobal };
 
 test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 	const pageErrors: Error[] = [];
+	const consoleErrors: string[] = [];
 	page.on('pageerror', (error) => pageErrors.push(error));
 	page.on('console', (msg) => {
-		if (msg.type() === 'error') console.log('console.error:', msg.text());
+		if (msg.type() === 'error') consoleErrors.push(msg.text());
 	});
 
 	await page.goto('/tests/browser/harness.html');
@@ -30,14 +31,19 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 		return {
 			pageCount: sections.length,
 			hasMathML: !!document.querySelector('math'),
+			invalidMathWrappers: document.querySelectorAll('math mo > mrow, math mo > mn, math mo > ms').length,
 			footerTexts: Array.from(document.querySelectorAll('footer')).map(f => f.textContent?.trim()),
 			columnCounts: Array.from(document.querySelectorAll('article')).map(a => getComputedStyle(a).columnCount),
 			mathParagraphs: mathParagraphs.map(el => {
 				const style = getComputedStyle(el);
+				const rect = el.getBoundingClientRect();
 				return {
 					tagName: el.tagName,
 					breakInside: style.breakInside || style.pageBreakInside,
 					pageBreakInside: style.pageBreakInside,
+					columnSpan: style.columnSpan,
+					width: rect.width,
+					height: rect.height,
 				};
 			}),
 			mathWhiteSpace: mathElements.map(el => getComputedStyle(el).whiteSpace),
@@ -51,6 +57,11 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 				return {
 					boxSizing: style.boxSizing,
 					overflow: style.overflow,
+					paddingLeft: style.paddingLeft,
+					paddingTop: style.paddingTop,
+					paddingRight: style.paddingRight,
+					paddingBottom: style.paddingBottom,
+					alignItems: style.alignItems,
 				};
 			}),
 		};
@@ -60,12 +71,15 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 	await page.screenshot({ path: 'test-results/zz-sample-full.png', fullPage: true });
 
 	expect(pageErrors).toEqual([]);
+	expect(consoleErrors).toEqual([]);
 	expect(result.pageCount).toBeGreaterThanOrEqual(1);
 	expect(result.hasMathML).toBe(true);
+	expect(result.invalidMathWrappers).toBe(0);
 	expect(result.mathParagraphs.length).toBeGreaterThan(0);
 	expect(result.mathParagraphs.every(item => item.tagName === 'DIV')).toBe(true);
 	expect(result.mathParagraphs.every(item => item.breakInside === 'avoid' || item.pageBreakInside === 'avoid')).toBe(true);
+	expect(result.mathParagraphs.every(item => item.columnSpan === 'none')).toBe(true);
 	expect(result.mathWhiteSpace.every(value => value === 'nowrap')).toBe(true);
 	expect(result.images.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0)).toBe(true);
-	expect(result.textboxes.every(textbox => textbox.boxSizing === 'border-box' && textbox.overflow === 'hidden')).toBe(true);
+	expect(result.textboxes.every(textbox => textbox.boxSizing === 'border-box' && textbox.overflow === 'hidden' && textbox.alignItems === 'flex-start')).toBe(true);
 });

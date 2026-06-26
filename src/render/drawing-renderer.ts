@@ -134,6 +134,7 @@ export async function renderShape(
 
 	if (elem.children?.length) {
 		const oText = createElement('div');
+		const textbox = elem.props?.textbox ?? {};
 		oText.classList.add(`${ctx.className}-textbox`);
 		oText.style.position = 'relative';
 		oText.style.width = '100%';
@@ -141,7 +142,11 @@ export async function renderShape(
 		oText.style.boxSizing = 'border-box';
 		oText.style.overflow = 'hidden';
 		oText.style.display = 'flex';
-		oText.style.alignItems = 'center';
+		oText.style.paddingLeft = textbox.paddingLeft ?? '';
+		oText.style.paddingTop = textbox.paddingTop ?? '';
+		oText.style.paddingRight = textbox.paddingRight ?? '';
+		oText.style.paddingBottom = textbox.paddingBottom ?? '';
+		oText.style.alignItems = textbox.verticalAnchor === 'b' ? 'flex-end' : textbox.verticalAnchor === 'ctr' ? 'center' : 'flex-start';
 		oText.style.justifyContent = 'center';
 		oContainer.appendChild(oText);
 		await ctx.renderChildren(elem, oText);

@@ -1,6 +1,5 @@
 import * as _ from 'lodash-es';
 import { DomType, OpenXmlElement } from '../model/element';
-import { asArray } from '../utils';
 import { createElement, createElementNS, appendChildren } from './dom-utils';
 
 const mathNs = 'http://www.w3.org/1998/Math/MathML';
@@ -73,34 +72,29 @@ export async function renderMmlDelimiter(elem: OpenXmlElement, cbs: MathRenderer
 
 // Render an n-ary operator (sum, integral, etc.) with optional sub/superscript
 export async function renderMmlNary(elem: OpenXmlElement, cbs: MathRendererCallbacks): Promise<MathMLElement> {
-	const children = [];
 	const grouped = _.keyBy(elem.children, 'type');
 
 	const sup = grouped[DomType.MmlSuperArgument];
 	const sub = grouped[DomType.MmlSubArgument];
 
-	const supElem: MathMLElement = sup
-		? createElementNS(mathNs, 'mo', null, asArray(await cbs.renderElement(sup)) as any)
-		: null;
-	const subElem: MathMLElement = sub
-		? createElementNS(mathNs, 'mo', null, asArray(await cbs.renderElement(sub)) as any)
-		: null;
-
+	const supElem = sup ? await cbs.renderElement(sup) as MathMLElement : null;
+	const subElem = sub ? await cbs.renderElement(sub) as MathMLElement : null;
 	const charElem: MathMLElement = createElementNS(mathNs, 'mo', null, [elem.props?.char ?? '∫']);
+	let operatorElem: MathMLElement = charElem;
 
-	if (supElem || subElem) {
-		children.push(createElementNS(mathNs, 'munderover', null, [charElem, subElem, supElem]));
+	if (supElem && subElem) {
+		operatorElem = createElementNS(mathNs, 'munderover', null, [charElem, subElem, supElem]);
 	} else if (supElem) {
-		children.push(createElementNS(mathNs, 'mover', null, [charElem, supElem]));
+		operatorElem = createElementNS(mathNs, 'mover', null, [charElem, supElem]);
 	} else if (subElem) {
-		children.push(createElementNS(mathNs, 'munder', null, [charElem, subElem]));
-	} else {
-		children.push(charElem);
+		operatorElem = createElementNS(mathNs, 'munder', null, [charElem, subElem]);
 	}
 
 	const oMrow: MathMLElement = createElementNS(mathNs, 'mrow', null);
-	appendChildren(oMrow, children);
-	await cbs.renderElements(grouped[DomType.MmlBase].children, oMrow);
+	appendChildren(oMrow, operatorElem);
+	if (grouped[DomType.MmlBase]) {
+		await cbs.renderElements(grouped[DomType.MmlBase].children, oMrow);
+	}
 	return oMrow;
 }
 
@@ -111,12 +105,8 @@ export async function renderMmlPreSubSuper(elem: OpenXmlElement, cbs: MathRender
 
 	const sup = grouped[DomType.MmlSuperArgument];
 	const sub = grouped[DomType.MmlSubArgument];
-	const supElem: MathMLElement = sup
-		? createElementNS(mathNs, 'mo', null, asArray(await cbs.renderElement(sup)) as any)
-		: null;
-	const subElem: MathMLElement = sub
-		? createElementNS(mathNs, 'mo', null, asArray(await cbs.renderElement(sub)) as any)
-		: null;
+	const supElem = sup ? await cbs.renderElement(sup) as MathMLElement : null;
+	const subElem = sub ? await cbs.renderElement(sub) as MathMLElement : null;
 	const stubElem: MathMLElement = createElementNS(mathNs, 'mo', null);
 
 	children.push(createElementNS(mathNs, 'msubsup', null, [stubElem, subElem, supElem]));

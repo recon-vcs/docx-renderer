@@ -75,8 +75,8 @@ export function parseShape(
 			case "cNvCnPr":
 			// 图形样式
 			case "style":
-			// 指定形状中文本正文的正文属性。
 			case "bodyPr":
+				parseTextBodyProperties(n, shape);
 				break;
 
 			default:
@@ -86,6 +86,16 @@ export function parseShape(
 		}
 	}
 	return shape;
+}
+
+function parseTextBodyProperties(node: Element, target: OpenXmlElement): void {
+	target.props.textbox = {
+		paddingLeft: xml.lengthAttr(node, "lIns", LengthUsage.Emu),
+		paddingTop: xml.lengthAttr(node, "tIns", LengthUsage.Emu),
+		paddingRight: xml.lengthAttr(node, "rIns", LengthUsage.Emu),
+		paddingBottom: xml.lengthAttr(node, "bIns", LengthUsage.Emu),
+		verticalAnchor: xml.attr(node, "anchor"),
+	};
 }
 
 // 图形属性
