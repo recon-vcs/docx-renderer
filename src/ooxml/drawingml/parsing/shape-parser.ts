@@ -89,12 +89,19 @@ export function parseShape(
 }
 
 function parseTextBodyProperties(node: Element, target: OpenXmlElement): void {
+	let autoFit = false;
+	for (const child of xml.elements(node)) {
+		if (child.localName === "spAutoFit") {
+			autoFit = true;
+		}
+	}
 	target.props.textbox = {
 		paddingLeft: xml.lengthAttr(node, "lIns", LengthUsage.Emu),
 		paddingTop: xml.lengthAttr(node, "tIns", LengthUsage.Emu),
 		paddingRight: xml.lengthAttr(node, "rIns", LengthUsage.Emu),
 		paddingBottom: xml.lengthAttr(node, "bIns", LengthUsage.Emu),
 		verticalAnchor: xml.attr(node, "anchor"),
+		autoFit,
 	};
 }
 
@@ -256,6 +263,8 @@ export function parseTransform2D(
 				}
 				target.props.width = convertLength(width, LengthUsage.Px, false);
 				target.props.height = convertLength(height, LengthUsage.Px, false);
+				target.props.originalWidth = convertLength(origin_width, LengthUsage.Emu, true);
+				target.props.originalHeight = convertLength(origin_height, LengthUsage.Emu, true);
 				target.cssStyle["width"] = convertLength(width, LengthUsage.Emu, true);
 				target.cssStyle["height"] = convertLength(height, LengthUsage.Emu, true);
 				break;

@@ -53,12 +53,21 @@ export async function renderDrawing(
 	parent: HTMLElement,
 	ctx: DrawingRenderContext
 ): Promise<HTMLElement> {
+	const childHasAutoFit = elem.children?.some((c: OpenXmlElement) => c.props?.textbox?.autoFit);
+
 	const oDrawing = createElement('span');
 	oDrawing.classList.add(`${ctx.className}-drawing`);
 	oDrawing.style.textIndent = '0px';
 	oDrawing.style.display = 'inline-block';
 	oDrawing.dataset.wrap = elem?.props.wrapType;
-	ctx.renderStyleValues(elem.cssStyle, oDrawing);
+
+	if (childHasAutoFit && elem.cssStyle['height']) {
+		const drawingStyle = { ...elem.cssStyle };
+		delete drawingStyle['height'];
+		ctx.renderStyleValues(drawingStyle, oDrawing);
+	} else {
+		ctx.renderStyleValues(elem.cssStyle, oDrawing);
+	}
 
 	const isOverflow = await ctx.appendChildren(parent, oDrawing);
 	if (isOverflow === Overflow.TRUE) {
@@ -100,10 +109,18 @@ export async function renderShape(
 	parent: HTMLElement,
 	ctx: DrawingRenderContext
 ): Promise<HTMLElement> {
+	const textbox = elem.props?.textbox ?? {};
+	const autoFit: boolean = textbox.autoFit ?? false;
+
+	// For autoFit textboxes, don't apply fixed height — let content drive size.
+	const containerStyle = autoFit
+		? Object.fromEntries(Object.entries(elem.cssStyle).filter(([k]) => k !== 'height'))
+		: elem.cssStyle;
+
 	const oContainer = createElement('span');
 	oContainer.style.position = 'relative';
 	oContainer.style.display = 'inline-block';
-	ctx.renderStyleValues(elem.cssStyle, oContainer);
+	ctx.renderStyleValues(containerStyle, oContainer);
 
 	const oSvg = createSvgElement('svg');
 	oSvg.setAttribute('viewBox', '0 0 21600 21600');
@@ -135,20 +152,28 @@ export async function renderShape(
 
 	if (elem.children?.length) {
 		const oText = createElement('div');
-		const textbox = elem.props?.textbox ?? {};
 		oText.classList.add(`${ctx.className}-textbox`);
 		oText.style.position = 'relative';
-		oText.style.width = '100%';
-		oText.style.height = '100%';
 		oText.style.boxSizing = 'border-box';
 		oText.style.overflow = 'hidden';
 		oText.style.display = 'flex';
+		oText.style.flexDirection = 'column';
 		oText.style.paddingLeft = textbox.paddingLeft ?? '';
 		oText.style.paddingTop = textbox.paddingTop ?? '';
 		oText.style.paddingRight = textbox.paddingRight ?? '';
 		oText.style.paddingBottom = textbox.paddingBottom ?? '';
-		oText.style.alignItems = textbox.verticalAnchor === 'b' ? 'flex-end' : textbox.verticalAnchor === 'ctr' ? 'center' : 'flex-start';
-		oText.style.justifyContent = 'center';
+		oText.style.justifyContent = textbox.verticalAnchor === 'b' ? 'flex-end' : textbox.verticalAnchor === 'ctr' ? 'center' : 'flex-start';
+
+		if (autoFit) {
+			// Let the textbox size to content; use original (pre-rotation) width if available.
+			oText.style.width = elem.props?.originalWidth ?? '100%';
+			oText.style.height = 'auto';
+		} else {
+			// Fixed size: use original dimensions to avoid rotated bounding box distortion.
+			oText.style.width = elem.props?.originalWidth ?? '100%';
+			oText.style.height = elem.props?.originalHeight ?? '100%';
+		}
+
 		oContainer.appendChild(oText);
 		await ctx.renderChildren(elem, oText);
 	}
