@@ -21,19 +21,19 @@ export default [
 		input,
 		output: [
 			{
-				file: 'dist/docx-vellum.mjs',
+				file: 'dist/docx-renderer.mjs',
 				format: 'es',
 				sourcemap: true,
 			},
 			{
-				file: 'dist/docx-vellum.cjs',
+				file: 'dist/docx-renderer.cjs',
 				format: 'cjs',
 				exports: 'named',
 				sourcemap: true,
 			},
 			{
 				// Browser/global build used by the Playwright test harness.
-				file: 'dist/docx-vellum.umd.js',
+				file: 'dist/docx-renderer.umd.js',
 				format: 'umd',
 				name: 'docx',
 				globals: umdGlobals,
@@ -41,7 +41,7 @@ export default [
 			},
 			{
 				// Same UMD build, served by the demo pages under docs/.
-				file: 'docs/js/docx-vellum.js',
+				file: 'docs/js/docx-renderer.js',
 				format: 'umd',
 				name: 'docx',
 				globals: umdGlobals,
@@ -57,7 +57,7 @@ export default [
 	{
 		input,
 		output: {
-			file: 'dist/docx-vellum.d.ts',
+			file: 'dist/docx-renderer.d.ts',
 			format: 'es',
 		},
 		plugins: [

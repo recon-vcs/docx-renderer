@@ -1,4 +1,4 @@
-# docx-vellum 描画精度 再設計計画書
+# docx-renderer 描画精度 再設計計画書
 
 対象: `tests/fixtures/zz-sample-analyze.docx` 解析結果ベース。
 目的: 対症療法でなく、拡張性高く描画精度保証できる設計への再構築。

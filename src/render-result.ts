@@ -39,7 +39,7 @@ export interface RenderResult {
 	dispose(): void;
 }
 
-const renderResultKey = Symbol('docx-vellum.renderResult');
+const renderResultKey = Symbol('docx-renderer.renderResult');
 
 type RenderResultContainer = HTMLElement & {
 	[renderResultKey]?: RenderResult;
@@ -49,9 +49,9 @@ class DomSourceMap implements SourceMap {
 	private elementsByPath = new Map<string, HTMLElement[]>();
 
 	constructor(private readonly root: HTMLElement) {
-		const elements = Array.from(root.querySelectorAll<HTMLElement>('[data-vellum-path]'));
+		const elements = Array.from(root.querySelectorAll<HTMLElement>('[data-renderer-path]'));
 		for (const element of elements) {
-			const path = element.dataset.vellumPath;
+			const path = element.dataset.rendererPath;
 			if (!path) continue;
 			const existing = this.elementsByPath.get(path);
 			if (existing) {
@@ -73,9 +73,9 @@ class DomSourceMap implements SourceMap {
 	}
 
 	pathFor(element: HTMLElement): string | null {
-		const target = element.closest<HTMLElement>('[data-vellum-path]');
+		const target = element.closest<HTMLElement>('[data-renderer-path]');
 		if (!target || !this.root.contains(target)) return null;
-		return target.dataset.vellumPath ?? null;
+		return target.dataset.rendererPath ?? null;
 	}
 }
 
@@ -155,7 +155,7 @@ class DomOverlayLayer implements OverlayLayer {
 			this.frameId = null;
 		}
 		for (const page of this.pages) {
-			page.element.querySelector<HTMLElement>(':scope > .vellum-overlay-layer')?.remove();
+			page.element.querySelector<HTMLElement>(':scope > .renderer-overlay-layer')?.remove();
 		}
 	}
 
@@ -176,11 +176,11 @@ class DomOverlayLayer implements OverlayLayer {
 	}
 
 	private ensurePageOverlay(page: HTMLElement): HTMLElement {
-		let overlay = page.querySelector<HTMLElement>(':scope > .vellum-overlay-layer');
+		let overlay = page.querySelector<HTMLElement>(':scope > .renderer-overlay-layer');
 		if (overlay) return overlay;
 
 		overlay = document.createElement('div');
-		overlay.className = 'vellum-overlay-layer';
+		overlay.className = 'renderer-overlay-layer';
 		overlay.style.position = 'absolute';
 		overlay.style.inset = '0';
 		overlay.style.pointerEvents = 'none';
@@ -248,8 +248,8 @@ export function createRenderResult(document: WordDocument, bodyContainer: HTMLEl
 		element,
 		blockPaths: Array.from(
 			new Set(
-				Array.from(element.querySelectorAll<HTMLElement>('[data-vellum-path]'))
-					.map((node) => node.dataset.vellumPath)
+				Array.from(element.querySelectorAll<HTMLElement>('[data-renderer-path]'))
+					.map((node) => node.dataset.rendererPath)
 					.filter((path): path is string => Boolean(path)),
 			),
 		),

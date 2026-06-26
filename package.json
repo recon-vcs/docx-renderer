@@ -1,5 +1,5 @@
 {
-  "name": "docx-vellum",
+  "name": "docx-renderer",
   "version": "0.1.0",
   "description": "Synchronous docx to HTML rendering library for the browser. Fork of docx-preview-sync, evolved for the Recon project.",
   "license": "Apache-2.0",
@@ -18,18 +18,18 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/recon-vcs/docx-vellum.git"
+    "url": "git+https://github.com/recon-vcs/docx-renderer.git"
   },
   "type": "module",
-  "main": "./dist/docx-vellum.cjs",
-  "module": "./dist/docx-vellum.mjs",
-  "types": "./dist/docx-vellum.d.ts",
-  "browser": "./dist/docx-vellum.umd.js",
+  "main": "./dist/docx-renderer.cjs",
+  "module": "./dist/docx-renderer.mjs",
+  "types": "./dist/docx-renderer.d.ts",
+  "browser": "./dist/docx-renderer.umd.js",
   "exports": {
     ".": {
-      "types": "./dist/docx-vellum.d.ts",
-      "import": "./dist/docx-vellum.mjs",
-      "require": "./dist/docx-vellum.cjs"
+      "types": "./dist/docx-renderer.d.ts",
+      "import": "./dist/docx-renderer.mjs",
+      "require": "./dist/docx-renderer.cjs"
     }
   },
   "files": [

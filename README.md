@@ -1,8 +1,8 @@
-# docx-vellum
+# docx-renderer
 
 Synchronous docx → HTML rendering library for the browser.
 
-docx-vellum parses Office Open XML (`.docx`) files with no server round-trip and
+docx-renderer parses Office Open XML (`.docx`) files with no server round-trip and
 renders them as paginated HTML directly into a DOM container. It is the document
 preview engine of the [Recon](https://github.com/recon-vcs) project and is being
 evolved into a standalone, publishable npm library.
@@ -14,7 +14,7 @@ evolved into a standalone, publishable npm library.
 
 ## Origin and credits
 
-docx-vellum is a fork of
+docx-renderer is a fork of
 [docx-preview-sync](https://github.com/millet0328/docx-preview-sync) by
 **millet0328**, which is itself derived from
 [docx-preview / docxjs](https://github.com/VolodymyrBaydalka/docxjs) by
@@ -24,7 +24,7 @@ and this fork keeps that license. See [NOTICE](./NOTICE) for attribution details
 ## Installation
 
 ```bash
-npm install docx-vellum
+npm install docx-renderer
 ```
 
 Runtime dependencies (`jszip`, `konva`, `lodash-es`) are declared as regular
@@ -35,7 +35,7 @@ dependencies and are installed automatically.
 ### ESM / bundler
 
 ```ts
-import { renderSync } from "docx-vellum";
+import { renderSync } from "docx-renderer";
 
 const response = await fetch("/sample.docx");
 const blob = await response.blob();
@@ -50,14 +50,14 @@ const result = await renderSync(blob, body, style, { breakPages: true });
 
 ### Browser global (UMD)
 
-Load `dist/docx-vellum.umd.js` after `jszip`, `konva` and `lodash`; the library
+Load `dist/docx-renderer.umd.js` after `jszip`, `konva` and `lodash`; the library
 is then available as the global `docx`:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/konva@9.3.6/konva.min.js"></script>
-<script src="docx-vellum.umd.js"></script>
+<script src="docx-renderer.umd.js"></script>
 <script>
   docx.renderSync(blob, document.getElementById("container")).then((result) => {
     result.dispose();

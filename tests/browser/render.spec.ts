@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Shape of the UMD global exposed by dist/docx-vellum.umd.js inside the
+ * Shape of the UMD global exposed by dist/docx-renderer.umd.js inside the
  * harness page. Only the members used by these tests are declared.
  */
 interface DocxGlobal {

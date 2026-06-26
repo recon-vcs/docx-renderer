@@ -599,7 +599,7 @@ export class HtmlRendererSync {
 			oNode.dataset.tag = elem.type;
 			const sourcePath = this.session.sourcePaths.get(elem);
 			if (sourcePath && this.isSourceAnchor(elem)) {
-				oNode.dataset.vellumPath = sourcePath;
+				oNode.dataset.rendererPath = sourcePath;
 			}
 		}
 		return oNode as Node_DOM;
