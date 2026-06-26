@@ -121,4 +121,29 @@ test.describe('section and break smoke', () => {
 		expect(allColumnCounts).toContain('3');
 	});
 
+	test('header image pagination does not repeat the same overflowing block', async ({ page }) => {
+		const pageErrors: Error[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error));
+
+		await renderInPage(page, 'break-page-header-image');
+		const metrics = await page.evaluate(() => {
+			const pages = Array.from(document.querySelectorAll<HTMLElement>('section.docx'));
+			const images = Array.from(document.querySelectorAll<HTMLImageElement>('img'));
+
+			return {
+				pageCount: pages.length,
+				imageCount: images.length,
+				imagesDecoded: images.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0),
+				pageTexts: pages.map(renderedPage => renderedPage.querySelector('article')?.textContent?.trim() ?? ''),
+			};
+		});
+
+		expect(pageErrors).toEqual([]);
+		expect(metrics.pageCount).toBeGreaterThan(1);
+		expect(metrics.pageCount).toBeLessThan(10);
+		expect(metrics.imageCount).toBeGreaterThan(0);
+		expect(metrics.imagesDecoded).toBe(true);
+		expect(metrics.pageTexts.some(text => text.includes('UN'))).toBe(true);
+	});
+
 });
