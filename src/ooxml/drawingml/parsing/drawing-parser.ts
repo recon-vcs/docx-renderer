@@ -1,19 +1,14 @@
 import { DomType, OpenXmlElement, WmlDrawing, WrapType } from '@docx/ooxml/wordprocessingml/document/model/dom';
-import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil } from '@docx/xml/parsing/parse-utils';
 import { convertLength, LengthUsage } from '@docx/ooxml/wordprocessingml/document/model/common';
 import { parseVmlElement } from '@docx/ooxml/vml/vml';
 import { parseGraphic } from '@docx/ooxml/drawingml/parsing/shape-parser';
+import type { ParseContext } from '@docx/ooxml/wordprocessingml/parsing/parse-context';
 
 const supportedNamespaceURIs = [
 	"http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
 ];
-
-// Callbacks required by drawing functions that delegate back to DocumentParser
-export interface DrawingParserCallbacks {
-	parseBodyElements(node: Element): OpenXmlElement[];
-}
 
 function normalizeWrapText(wrapText: string | undefined, posX?: { align?: string }): 'left' | 'right' {
 	switch (wrapText) {
@@ -29,13 +24,13 @@ function normalizeWrapText(wrapText: string | undefined, posX?: { align?: string
 
 export function parseVmlPicture(
 	elem: Element,
-	callbacks: DrawingParserCallbacks
+	ctx: ParseContext
 ): OpenXmlElement {
 	const result = { type: DomType.VmlPicture, children: [] as OpenXmlElement[] };
 
 	for (const el of xml.elements(elem)) {
-		// callbacks satisfies VmlParserContext (structural match on parseBodyElements)
-		const child = parseVmlElement(el, callbacks);
+		// ctx satisfies VmlParserContext (structural match on parseBodyElements)
+		const child = parseVmlElement(el, ctx);
 		child && result.children.push(child);
 	}
 
@@ -48,11 +43,11 @@ export function checkAlternateContent(elem: Element): Element {
 		return elem;
 	}
 
-	let choice = xml.element(elem, "Choice");
+	const choice = xml.element(elem, "Choice");
 	// 备选项
 	if (choice) {
-		let requires = xml.attr(choice, "Requires");
-		let namespaceURI = elem.lookupNamespaceURI(requires);
+		const requires = xml.attr(choice, "Requires");
+		const namespaceURI = elem.lookupNamespaceURI(requires);
 
 		if (supportedNamespaceURIs.includes(namespaceURI)) {
 			return choice.firstElementChild;
@@ -64,16 +59,15 @@ export function checkAlternateContent(elem: Element): Element {
 
 export function parseDrawing(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: DrawingParserCallbacks
+	ctx: ParseContext
 ): OpenXmlElement {
-	for (let n of xml.elements(node)) {
+	for (const n of xml.elements(node)) {
 		switch (n.localName) {
 			case "inline":
 			case "anchor":
-				return parseDrawingWrapper(n, options, callbacks);
+				return parseDrawingWrapper(n, ctx);
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Drawing Element：${n.localName}`, 'color:#f75607');
 				}
 		}
@@ -84,23 +78,22 @@ export function parseDrawing(
 // DrawingML对象有两种状态：内联（inline）-- 对象与文本对齐，浮动（anchor）--对象在文本中浮动，但可以相对于页面进行绝对定位
 export function parseDrawingWrapper(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: DrawingParserCallbacks
+	ctx: ParseContext
 ): OpenXmlElement {
 	// 是否布局在表格中
-	let layoutInCell = xml.boolAttr(node, "layoutInCell");
+	const layoutInCell = xml.boolAttr(node, "layoutInCell");
 	// 是否锁定
-	let locked = xml.boolAttr(node, "locked");
+	const locked = xml.boolAttr(node, "locked");
 	// 是否在文字后面显示
-	let behindDoc = xml.boolAttr(node, "behindDoc");
+	const behindDoc = xml.boolAttr(node, "behindDoc");
 	// 是否允许重叠
-	let allowOverlap = xml.boolAttr(node, "allowOverlap");
+	const allowOverlap = xml.boolAttr(node, "allowOverlap");
 	// 是否简单定位
-	let simplePos = xml.boolAttr(node, "simplePos");
+	const simplePos = xml.boolAttr(node, "simplePos");
 	// 层叠数值
-	let relativeHeight = xml.intAttr(node, "relativeHeight", 1);
+	const relativeHeight = xml.intAttr(node, "relativeHeight", 1);
 	// 计算DrawML对象相对于文字的上下左右间距；仅在浮动、文字环绕模式下有效；
-	let distance = {
+	const distance = {
 		left: xml.lengthAttr(node, "distL", LengthUsage.Emu),
 		right: xml.lengthAttr(node, "distR", LengthUsage.Emu),
 		top: xml.lengthAttr(node, "distT", LengthUsage.Emu),
@@ -111,7 +104,7 @@ export function parseDrawingWrapper(
 		distB: xml.intAttr(node, "distB", 0),
 	}
 
-	let result: WmlDrawing = {
+	const result: WmlDrawing = {
 		type: DomType.Drawing,
 		children: [],
 		cssStyle: {},
@@ -137,11 +130,11 @@ export function parseDrawingWrapper(
 	}
 
 	// 横轴定位
-	let posX: Position = { relative: "page", align: "left", offset: "0pt", origin: 0, };
+	const posX: Position = { relative: "page", align: "left", offset: "0pt", origin: 0, };
 	// 纵轴定位
-	let posY: Position = { relative: "page", align: "top", offset: "0pt", origin: 0, };
+	const posY: Position = { relative: "page", align: "top", offset: "0pt", origin: 0, };
 
-	for (let n of xml.elements(node)) {
+	for (const n of xml.elements(node)) {
 		switch (n.localName) {
 			case "simplePos":
 				// 简单定位
@@ -155,8 +148,8 @@ export function parseDrawingWrapper(
 
 			case "positionH":
 				if (!simplePos) {
-					let alignNode = xml.element(n, "align");
-					let offsetNode = xml.element(n, "posOffset");
+					const alignNode = xml.element(n, "align");
+					const offsetNode = xml.element(n, "posOffset");
 
 					posX.relative = xml.attr(n, "relativeFrom") ?? posX.relative;
 
@@ -175,8 +168,8 @@ export function parseDrawingWrapper(
 
 			case "positionV":
 				if (!simplePos) {
-					let alignNode = xml.element(n, "align");
-					let offsetNode = xml.element(n, "posOffset");
+					const alignNode = xml.element(n, "align");
+					const offsetNode = xml.element(n, "posOffset");
 
 					posY.relative = xml.attr(n, "relativeFrom") ?? posY.relative;
 
@@ -218,13 +211,15 @@ export function parseDrawingWrapper(
 				break;
 
 			// 图片
-			case "graphic":
-				let g = parseGraphic(n, options, callbacks);
+			case "graphic": {
+				// ctx structurally satisfies ShapeParserCallbacks (has parseBodyElements)
+				const g = parseGraphic(n, ctx.options, ctx);
 
 				if (g) {
 					result.children.push(g);
 				}
 				break;
+			}
 			case "wrapTopAndBottom":
 				result.props.wrapType = WrapType.TopAndBottom;
 				break;
@@ -245,19 +240,18 @@ export function parseDrawingWrapper(
 				// 文本环绕位置：bothSides、largest、left、right
 				result.props.wrapText = xml.attr(n, "wrapText");
 				// 多边形数据
-				let polygonNode = xml.element(n, "wrapPolygon");
-				parsePolygon(polygonNode, result);
+				parsePolygon(xml.element(n, "wrapPolygon"), result);
 				break;
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Drawing Property：${n.localName}`, 'color:#f75607');
 				}
 		}
 	}
 	// 重新计算DrawWrapper的空间
-	let { extent, effectExtent } = result.props;
-	let real_width = extent.origin_width + effectExtent.origin_left + effectExtent.origin_right;
-	let real_height = extent.origin_height + effectExtent.origin_top + effectExtent.origin_bottom;
+	const { extent, effectExtent } = result.props;
+	const real_width = extent.origin_width + effectExtent.origin_left + effectExtent.origin_right;
+	const real_height = extent.origin_height + effectExtent.origin_top + effectExtent.origin_bottom;
 	result.cssStyle["width"] = convertLength(real_width, LengthUsage.Emu);
 	result.cssStyle["height"] = convertLength(real_height, LengthUsage.Emu);
 	// 内联（inline）--嵌入型环绕
@@ -275,12 +269,12 @@ export function parseDrawingWrapper(
 			result.cssStyle["z-index"] = relativeHeight;
 		}
 		// 图片文字环绕默认采用Inline
-		if (options.ignoreImageWrap) {
+		if (ctx.options.ignoreImageWrap) {
 			result.props.wrapType = WrapType.Inline;
 		}
 		// 文本环绕位置：bothSides、largest、left、right
-		let { wrapType } = result.props;
-		let wrapText = normalizeWrapText(result.props.wrapText, posX);
+		const { wrapType } = result.props;
+		const wrapText = normalizeWrapText(result.props.wrapText, posX);
 
 		switch (wrapType) {
 			// 顶部底部文字环绕
@@ -375,7 +369,7 @@ export function parseDrawingWrapper(
 			case WrapType.Tight:
 				result.cssStyle["float"] = wrapText === 'left' ? "right" : "left";
 				// 根据多边形设置环绕
-				let { polygonData } = result.props;
+				const { polygonData } = result.props;
 				result.cssStyle["shape-outside"] = `polygon(${polygonData})`;
 
 				// TODO shape-margin目前4个方位只能设置统一的数值.暂时无法采用
@@ -429,14 +423,14 @@ export function parseDrawingWrapper(
 * 实际坐标Y = 固定坐标Y(EMU) * 图形的Height / 21600
 */
 export function parsePolygon(node: Element, target: OpenXmlElement): void {
-	let polygon = [];
-	let { distance, extent, posX, posY } = target.props;
-	let wrapText = normalizeWrapText(target.props.wrapText, posX);
+	const polygon: string[] = [];
+	const { distance, extent, posX, posY } = target.props;
+	const wrapText = normalizeWrapText(target.props.wrapText, posX);
 
 	xmlUtil.foreach(node, (elem) => {
 		// 原始值，单位：EMU
-		let origin_x = xml.intAttr(elem, 'x', 0);
-		let origin_y = xml.intAttr(elem, 'y', 0);
+		const origin_x = xml.intAttr(elem, 'x', 0);
+		const origin_y = xml.intAttr(elem, 'y', 0);
 		// 实际坐标，单位EMU
 		let real_x: number, real_y: number;
 		// Point坐标，单位pt
@@ -514,7 +508,7 @@ export function parsePolygon(node: Element, target: OpenXmlElement): void {
 				break;
 		}
 
-		let point = `${revise_x} ${revise_y}`;
+		const point = `${revise_x} ${revise_y}`;
 		polygon.push(point);
 	});
 	target.props.polygonData = polygon.join(',');

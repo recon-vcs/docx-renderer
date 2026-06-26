@@ -4,35 +4,27 @@ import { parseParagraphProperty } from '@docx/ooxml/wordprocessingml/document/mo
 import type { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
 import { parseBookmarkStart, parseBookmarkEnd } from '@docx/ooxml/wordprocessingml/document/model/bookmarks';
 import { WmlCommentRangeStart, WmlCommentRangeEnd } from '@docx/ooxml/wordprocessingml/parts/comments/elements';
-import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
 import { parseDefaultProperties } from './properties-parser';
 import { parseSdt } from './content-parser';
+import type { ParseContext } from './parse-context';
 
-export interface ParagraphParserCallbacks {
-	parseRun(node: Element): WmlRun;
-	parseMathElement(node: Element): OpenXmlElement;
-	parseBodyElements(node: Element): OpenXmlElement[];
-}
-
-// TODO Inserted Math Control Character, Inserted Table Row, Inserted Numbering Properties
 export function parseInserted(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: ParagraphParserCallbacks,
+	ctx: ParseContext,
 ): OpenXmlElement {
-	let wmlInserted: OpenXmlElement = {
+	const wmlInserted: OpenXmlElement = {
 		type: DomType.Inserted,
 		children: [],
 	};
 	xmlUtil.foreach(node, (child) => {
 		switch (child.localName) {
 			case "r":
-				wmlInserted.children.push(callbacks.parseRun(child));
+				wmlInserted.children.push(ctx.parseRun(child));
 				break;
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Inserted：${child.localName}`, 'color:#f75607');
 				}
 		}
@@ -43,20 +35,19 @@ export function parseInserted(
 // TODO
 export function parseDeleted(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: ParagraphParserCallbacks,
+	ctx: ParseContext,
 ): OpenXmlElement {
-	let wmlDeleted: OpenXmlElement = {
+	const wmlDeleted: OpenXmlElement = {
 		type: DomType.Deleted,
 		children: [],
 	};
 	xmlUtil.foreach(node, (child) => {
 		switch (child.localName) {
 			case "r":
-				wmlDeleted.children.push(callbacks.parseRun(child));
+				wmlDeleted.children.push(ctx.parseRun(child));
 				break;
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Inserted：${child.localName}`, 'color:#f75607');
 				}
 		}
@@ -66,10 +57,9 @@ export function parseDeleted(
 
 export function parseParagraph(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: ParagraphParserCallbacks,
+	ctx: ParseContext,
 ): WmlParagraph {
-	let wmlParagraph: WmlParagraph = {
+	const wmlParagraph: WmlParagraph = {
 		type: DomType.Paragraph,
 		children: [],
 		props: {},
@@ -80,15 +70,15 @@ export function parseParagraph(
 		switch (child.localName) {
 			// property
 			case "pPr":
-				parseParagraphProperties(child, wmlParagraph, options);
+				parseParagraphProperties(child, wmlParagraph, ctx);
 				break;
 
 			case "r":
-				wmlParagraph.children.push(callbacks.parseRun(child));
+				wmlParagraph.children.push(ctx.parseRun(child));
 				break;
 
 			case "hyperlink":
-				wmlParagraph.children.push(parseHyperlink(child, options, callbacks));
+				wmlParagraph.children.push(parseHyperlink(child, ctx));
 				break;
 
 			case "bookmarkStart":
@@ -109,25 +99,25 @@ export function parseParagraph(
 
 			case "oMath":
 			case "oMathPara":
-				wmlParagraph.children.push(callbacks.parseMathElement(child));
+				wmlParagraph.children.push(ctx.parseMathElement(child));
 				break;
 
 			// TODO Structured Document Tag
 			case "sdt":
-				wmlParagraph.children.push(...parseSdt(child, callbacks));
+				wmlParagraph.children.push(...parseSdt(child, ctx));
 				break;
 
 			// TODO Inserted Math Control Character, Inserted Table Row, Inserted Numbering Properties
 			case "ins":
-				wmlParagraph.children.push(parseInserted(child, options, callbacks));
+				wmlParagraph.children.push(parseInserted(child, ctx));
 				break;
 
 			case "del":
-				wmlParagraph.children.push(parseDeleted(child, options, callbacks));
+				wmlParagraph.children.push(parseDeleted(child, ctx));
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Paragraph Element：${child.localName}`, 'color:#f75607');
 				}
 		}
@@ -135,8 +125,8 @@ export function parseParagraph(
 
 	// when paragraph is empty, add a br tag to work with rich text editor and generate line height
 	if (wmlParagraph.children.length === 0) {
-		let wmlBreak: WmlBreak = { type: DomType.Break, "break": BreakType.TextWrapping };
-		let wmlRun = { type: DomType.Run, children: [wmlBreak as OpenXmlElement] } as WmlRun;
+		const wmlBreak: WmlBreak = { type: DomType.Break, "break": BreakType.TextWrapping };
+		const wmlRun = { type: DomType.Run, children: [wmlBreak as OpenXmlElement] } as WmlRun;
 		wmlParagraph.children = [wmlRun];
 	}
 
@@ -146,9 +136,9 @@ export function parseParagraph(
 export function parseParagraphProperties(
 	elem: Element,
 	paragraph: WmlParagraph,
-	options: DocumentParserOptions,
+	ctx: ParseContext,
 ): void {
-	parseDefaultProperties(elem, options, paragraph.cssStyle = {}, null, c => {
+	parseDefaultProperties(elem, ctx.options, paragraph.cssStyle = {}, null, c => {
 		if (parseParagraphProperty(c, paragraph.props, xml)) {
 			return true;
 		}
@@ -178,22 +168,21 @@ export function parseParagraphProperties(
 }
 
 export function parseFrame(node: Element, paragraph: WmlParagraph): void {
-	let dropCap = xml.attr(node, "dropCap");
+	const dropCap = xml.attr(node, "dropCap");
 	if (dropCap == "drop")
 		paragraph.cssStyle["float"] = "left";
 }
 
 export function parseHyperlink(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: ParagraphParserCallbacks,
+	ctx: ParseContext,
 ): WmlHyperlink {
-	let wmlHyperlink: WmlHyperlink = <WmlHyperlink>{
+	const wmlHyperlink: WmlHyperlink = <WmlHyperlink>{
 		type: DomType.Hyperlink,
 		children: [],
 	};
-	let anchor = xml.attr(node, "anchor");
-	let relId = xml.attr(node, "id");
+	const anchor = xml.attr(node, "anchor");
+	const relId = xml.attr(node, "id");
 
 	if (anchor) {
 		wmlHyperlink.href = "#" + anchor;
@@ -205,10 +194,10 @@ export function parseHyperlink(
 	xmlUtil.foreach(node, (child) => {
 		switch (child.localName) {
 			case "r":
-				wmlHyperlink.children.push(callbacks.parseRun(child));
+				wmlHyperlink.children.push(ctx.parseRun(child));
 				break;
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Hyperlink Element：${child.localName}`, 'color:#f75607');
 				}
 		}

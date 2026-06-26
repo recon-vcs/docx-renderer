@@ -2,35 +2,28 @@ import { DomType, OpenXmlElement, WmlBreak, WmlCharacter, WmlLastRenderedPageBre
 import type { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
 import { WmlFieldChar, WmlFieldSimple } from '@docx/ooxml/wordprocessingml/document/model/fields';
 import { WmlCommentReference } from '@docx/ooxml/wordprocessingml/parts/comments/elements';
-import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
 import { parseDefaultProperties, parseSpacing } from './properties-parser';
-
-export interface RunParserCallbacks {
-	parseDrawing(node: Element): OpenXmlElement;
-	parseVmlPicture(node: Element): OpenXmlElement;
-	checkAlternateContent(elem: Element): Element;
-}
+import type { ParseContext } from './parse-context';
 
 export function parseRun(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: RunParserCallbacks,
+	ctx: ParseContext,
 ): WmlRun {
-	let wmlRun: WmlRun = {
+	const wmlRun: WmlRun = {
 		type: DomType.Run,
 		children: [],
 	};
 
 	xmlUtil.foreach(node, (child) => {
 		// check for alternate content
-		child = callbacks.checkAlternateContent(child);
+		child = ctx.checkAlternateContent(child);
 
 		switch (child.localName) {
 			// property
 			case "rPr":
-				parseRunProperties(child, wmlRun, options);
+				parseRunProperties(child, wmlRun, ctx);
 				break;
 
 			case "t":
@@ -121,15 +114,15 @@ export function parseRun(
 				break;
 
 			case "drawing":
-				wmlRun.children.push(callbacks.parseDrawing(child));
+				wmlRun.children.push(ctx.parseDrawing(child));
 				break;
 
 			case "pict":
-				wmlRun.children.push(callbacks.parseVmlPicture(child));
+				wmlRun.children.push(ctx.parseVmlPicture(child));
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Run Element：${child.localName}`, 'color:#f75607');
 				}
 		}
@@ -139,13 +132,13 @@ export function parseRun(
 }
 
 export function parseText(elem: Element, type: DomType): WmlText {
-	let wmlText = { type, text: '' } as WmlText;
+	const wmlText = { type, text: '' } as WmlText;
 	let textContent = elem.textContent;
 	// preserve whitespace
-	let is_preserve_space = xml.attr(elem, "xml:space") === "preserve";
+	const is_preserve_space = xml.attr(elem, "xml:space") === "preserve";
 	if (is_preserve_space) {
-		//   = non-breaking space
-		textContent = textContent.split(/\s/).join(" ");
+		//   = non-breaking space
+		textContent = textContent.split(/\s/).join(" ");
 	}
 	wmlText.text = textContent;
 	if (textContent.length > 0) {
@@ -171,9 +164,9 @@ export function parseCharacter(text: string): OpenXmlElement[] {
 export function parseRunProperties(
 	elem: Element,
 	run: WmlRun,
-	options: DocumentParserOptions,
+	ctx: ParseContext,
 ): void {
-	parseDefaultProperties(elem, options, run.cssStyle = {}, null, c => {
+	parseDefaultProperties(elem, ctx.options, run.cssStyle = {}, null, c => {
 		switch (c.localName) {
 			// Referenced Character Style
 			case "rStyle":
@@ -187,7 +180,7 @@ export function parseRunProperties(
 
 			// Character Spacing Adjustment
 			case "spacing":
-				parseSpacing(c, run, options);
+				parseSpacing(c, run, ctx.options);
 				break;
 
 			default:

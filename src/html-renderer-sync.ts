@@ -38,137 +38,124 @@ interface RenderSplitContext {
 	regionIndex: number;
 }
 
-// HTML渲染器
-export class HtmlRendererSync {
-	className = 'docx';
-	rootSelector: string;
-	document: WordDocument;
-	options: Options;
-	styleMap: Record<string, IDomStyle> = {};
-	bodyContainer: HTMLElement;
-	wrapper: HTMLElement;
-	// 当前操作的Part
-	currentPart: Part = null;
-	// 系统的PPI
-	pointToPixelRatio: number;
-
-	// 当前操作的Page
+/** All mutable state that is created fresh for each render() call. */
+interface RenderSession {
+	/** The page currently being rendered. Advances as overflow splits pages. */
 	currentPage: Page;
-	// Table rendering context (cell position + vertical-merge stacks for nested tables)
-	tableCtx: TableContext = {
-		tableVerticalMerges: [],
-		currentVerticalMerge: null,
-		tableCellPositions: [],
-		currentCellPosition: null,
-	};
-
-	footnoteMap: Record<string, WmlFootnote> = {};
-	endnoteMap: Record<string, WmlEndnote> = {};
+	/** The OPC Part that owns currently-rendered content (changes per header/footer/drawing). */
+	currentPart: Part;
+	/** Footnote ref ids collected for the current page. Reset per page. */
 	currentFootnoteIds: string[];
-	currentEndnoteIds: string[] = [];
-	// 已使用的Header、Footer部分的数组。
-	usedHeaderFooterParts: any[] = [];
+	/** Endnote ref ids collected across all pages. */
+	currentEndnoteIds: string[];
+	/** Table cell position and vertical-merge stacks for nested tables. */
+	tableCtx: TableContext;
+	/** Header/footer Parts that have already been rendered (to avoid double-registering). */
+	usedHeaderFooterParts: any[];
+	/** Tab-stop spans queued for post-render measurement. */
+	currentTabs: any[];
+	/** Konva stage used for image clipping/transforms. Destroyed after render. */
+	konvaStage: Stage;
+	/** Konva layer paired with konvaStage. */
+	konvaLayer: Layer;
+}
 
-	defaultTabSize: string;
-	// 当前制表位
-	currentTabs: any[] = [];
+export class HtmlRendererSync {
+	private className = 'docx';
+	private rootSelector: string;
+	private document: WordDocument;
+	private options: Options;
+	private styleMap: Record<string, IDomStyle> = {};
+	private bodyContainer: HTMLElement;
+	private wrapper: HTMLElement;
+	private pointToPixelRatio: number;
+	private footnoteMap: Record<string, WmlFootnote> = {};
+	private endnoteMap: Record<string, WmlEndnote> = {};
+	private defaultTabSize: string;
 
-	// Konva框架--stage元素
-	konva_stage: Stage;
-	// Konva框架--layer元素
-	konva_layer: Layer;
-
-	/**
-	 * Object对象 => HTML标签
-	 *
-	 * @param document word文档Object对象
-	 * @param bodyContainer HTML生成容器
-	 * @param styleContainer CSS样式生成容器
-	 * @param options 渲染配置选项
-	 */
+	/** Mutable per-render state. Null between renders. */
+	private session: RenderSession | null = null;
 
 	async render(document: WordDocument, bodyContainer: HTMLElement, styleContainer: HTMLElement = null, options: Options) {
-		// word文档对象
 		this.document = document;
-		// 渲染选项
 		this.options = options;
-		// class类前缀
 		this.className = options.className;
-		// 根元素
 		this.rootSelector = options.inWrapper ? `.${this.className}-wrapper` : ':root';
-		// 文档CSS样式
 		this.styleMap = null;
-		// 主体容器
 		this.bodyContainer = bodyContainer;
-		// 样式容器，可传参指定，默认为主体容器
 		styleContainer = styleContainer || bodyContainer;
-		// 计算Point/Pixel换算比例
 		this.pointToPixelRatio = computePointToPixelRatio();
-		// CSS样式生成容器，清空所有CSS样式
+
 		removeAllElements(styleContainer);
-		// HTML生成容器，清空所有HTML元素
 		removeAllElements(bodyContainer);
 
-		// 添加注释
 		appendComment(styleContainer, 'docxjs library predefined styles');
-		// 添加默认CSS样式
 		styleContainer.appendChild(this.renderDefaultStyle());
 
-		// 主题CSS样式
 		if (document.themePart) {
 			appendComment(styleContainer, 'docxjs document theme values');
 			this.renderTheme(document.themePart, styleContainer);
 		}
-		// 文档默认CSS样式，包含表格、列表、段落、字体，样式存在继承顺序
 		if (document.stylesPart != null) {
 			this.styleMap = this.processStyles(document.stylesPart.styles);
 
 			appendComment(styleContainer, 'docxjs document styles');
 			styleContainer.appendChild(this.renderStyles(document.stylesPart.styles));
 		}
-		// 多级列表样式
 		if (document.numberingPart) {
 			this.processNumberings(document.numberingPart.domNumberings);
 
 			appendComment(styleContainer, "docxjs document numbering styles");
 			styleContainer.appendChild(this.renderNumbering(document.numberingPart.domNumberings, styleContainer));
-			//styleContainer.appendChild(this.renderNumbering2(document.numberingPart, styleContainer));
 		}
-		// 字体列表CSS样式
 		if (!options.ignoreFonts && document.fontTablePart) {
 			this.renderFontTable(document.fontTablePart, styleContainer);
 		}
-		// 生成脚注部分的Map
 		if (document.footnotesPart) {
 			this.footnoteMap = _.keyBy(document.footnotesPart.rootElement.children, 'id');
 		}
-		// 生成尾注部分的Map
 		if (document.endnotesPart) {
 			this.endnoteMap = _.keyBy(document.endnotesPart.rootElement.children, 'id');
 		}
-		// 文档设置
 		if (document.settingsPart) {
 			this.defaultTabSize = document.settingsPart.settings?.defaultTabStop;
 		}
 		this.assignSourcePaths(document.documentPart.body.children);
-		// 根据option生成wrapper
+
 		if (this.options.inWrapper) {
 			this.wrapper = this.renderWrapper();
 			bodyContainer.appendChild(this.wrapper);
 		} else {
 			this.wrapper = bodyContainer;
 		}
-		// 生成Canvas画布元素--Konva框架
-		this.renderKonva();
-		// 主文档--内容
+
+		const { stage, layer } = createKonvaFn(this.bodyContainer);
+		this.session = {
+			currentPage: null,
+			currentPart: null,
+			currentFootnoteIds: [],
+			currentEndnoteIds: [],
+			tableCtx: {
+				tableVerticalMerges: [],
+				currentVerticalMerge: null,
+				tableCellPositions: [],
+				currentCellPosition: null,
+			},
+			usedHeaderFooterParts: [],
+			currentTabs: [],
+			konvaStage: stage,
+			konvaLayer: layer,
+		};
+
 		await this.renderPages(document.documentPart.body);
-		// 渲染完成所有Page, 隐藏Stage
-		this.konva_stage.visible(false);
-		// 刷新制表符
+
+		this.session.konvaStage.visible(false);
 		this.refreshTabStops();
+		this.session.konvaStage.destroy();
+		this.session = null;
 	}
 
-	assignSourcePaths(children: OpenXmlElement[]) {
+	private assignSourcePaths(children: OpenXmlElement[]) {
 		children.forEach((child, index) => {
 			const path = `body/${index}`;
 			child.sourcePath = path;
@@ -176,7 +163,7 @@ export class HtmlRendererSync {
 		});
 	}
 
-	assignNestedSourcePaths(element: OpenXmlElement, path: string) {
+	private assignNestedSourcePaths(element: OpenXmlElement, path: string) {
 		if (element.type === DomType.Table) {
 			element.children?.forEach((row, rowIndex) => {
 				row.children?.forEach((cell, cellIndex) => {
@@ -197,66 +184,59 @@ export class HtmlRendererSync {
 		});
 	}
 
-	// Render built-in default styles.
-	renderDefaultStyle() {
+	private renderDefaultStyle() {
 		return renderDefaultStyleFn(this.className);
 	}
 
-	// Render document theme CSS variables.
-	renderTheme(themePart: ThemePart, styleContainer: HTMLElement) {
+	private renderTheme(themePart: ThemePart, styleContainer: HTMLElement) {
 		renderThemeFn(themePart, styleContainer, this.documentStylesCallbacks());
 	}
 
-	// Build a CSS class name for a Word style.
-	processStyleName(className: string): string {
+	private processStyleName(className: string): string {
 		return processStyleNameFn(className, this.className);
 	}
 
-	// Merge inherited style rules. Base styles are ordered before dependent styles.
-	processStyles(styles: IDomStyle[]) {
+	private processStyles(styles: IDomStyle[]) {
 		return processStylesFn(styles, this.documentStylesCallbacks());
 	}
 
-	// Render document style rules.
-	renderStyles(styles: IDomStyle[]): HTMLElement {
+	private renderStyles(styles: IDomStyle[]): HTMLElement {
 		return renderStylesFn(styles, this.documentStylesCallbacks());
 	}
 
-	processNumberings(numberings: IDomNumbering[]) {
+	private processNumberings(numberings: IDomNumbering[]) {
 		processNumberingsFn(numberings, this.numberingStylesCallbacks());
 	}
 
-	renderNumbering(numberings: IDomNumbering[], styleContainer: HTMLElement) {
+	private renderNumbering(numberings: IDomNumbering[], styleContainer: HTMLElement) {
 		return renderNumberingFn(numberings, styleContainer, this.numberingStylesCallbacks());
 	}
 
-	numberingClass(id: string, lvl: number) {
+	private numberingClass(id: string, lvl: number) {
 		return numberingClassFn(this.className, id, lvl);
 	}
 
-	styleToString(selectors: string, declarations: Record<string, string>, cssText: string = null) {
+	private styleToString(selectors: string, declarations: Record<string, string>, cssText: string = null) {
 		return styleToStringFn(selectors, declarations, cssText);
 	}
 
-	numberingCounter(id: string, lvl: number) {
+	private numberingCounter(id: string, lvl: number) {
 		return numberingCounterFn(this.className, id, lvl);
 	}
 
-	levelTextToContent(text: string, suff: string, id: string, numformat: string) {
+	private levelTextToContent(text: string, suff: string, id: string, numformat: string) {
 		return levelTextToContentFn(text, suff, id, numformat, (counterId, level) => this.numberingCounter(counterId, level));
 	}
 
-	numFormatToCssValue(format: string) {
+	private numFormatToCssValue(format: string) {
 		return numFormatToCssValueFn(format);
 	}
 
-	// Render embedded font-face rules.
-	renderFontTable(fontsPart: FontTablePart, styleContainer: HTMLElement) {
+	private renderFontTable(fontsPart: FontTablePart, styleContainer: HTMLElement) {
 		renderFontTableFn(fontsPart, styleContainer, this.documentStylesCallbacks());
 	}
 
-	// Render the optional wrapper container.
-	renderWrapper() {
+	private renderWrapper() {
 		return renderWrapperFn(this.className);
 	}
 
@@ -288,8 +268,7 @@ export class HtmlRendererSync {
 		};
 	}
 
-	// Build physical pages from section regions and explicit break data.
-	splitPageBySymbol(documentElement: DocumentElement): Page[] {
+	private splitPageBySymbol(documentElement: DocumentElement): Page[] {
 		const split = splitDocumentIntoPhysicalPages(documentElement);
 		const physicalPagesWithRegions = split.pages.filter(physicalPage => physicalPage.regions.length > 0);
 		const contexts = buildPageLayoutContexts(physicalPagesWithRegions);
@@ -314,49 +293,33 @@ export class HtmlRendererSync {
 		});
 	}
 
-	// 生成所有的页面Page
-	async renderPages(document: DocumentElement) {
-		// 根据options.breakPages，选择是否分页
+	private async renderPages(document: DocumentElement) {
 		let pages: Page[];
 		if (this.options.breakPages) {
-			// 根据分页符，初步拆分页面
 			pages = this.splitPageBySymbol(document);
 		} else {
-			// 不分页则，只有一个page
 			pages = [new Page({ isSplit: true, sectProps: document.sectProps, children: document.children, } as PageProps)];
 		}
-		// 初步分页结果,缓存至body中
 		document.pages = pages;
-		// 前一个节属性，判断分节符的第一个page
 		let prevProps = null;
-		// 浅拷贝初步分页结果，后续拆分操作将不断扩充数组，导致下面循环异常
 		let origin_pages = [...pages];
-		// 遍历生成每一个page
 		for (let i = 0; i < origin_pages.length; i++) {
-			this.currentFootnoteIds = [];
+			this.session.currentFootnoteIds = [];
 			const page: Page = origin_pages[i];
 			const { sectProps } = page;
-			// sectionProps属性不存在，则使用文档级别props;
 			page.sectProps = sectProps ?? document.sectProps;
-			// 是否本小节的第一个page
 			page.isFirstPage = page.layoutContext?.isFirstSectionPage ?? prevProps != page.sectProps;
-			// TODO 是否最后一个page,此时分页未完成，计算并不准确，影响到尾注的渲染
 			page.isLastPage = i === origin_pages.length - 1;
-			// 溢出检测默认不开启
 			page.checkingOverflow = false;
-			// 将上述数据存储在currentPage中
-			this.currentPage = page;
-			// 存储前一个节属性
+			this.session.currentPage = page;
 			prevProps = page.sectProps;
-			// 渲染单个page
 			await this.renderPage();
 		}
 	}
 
-	// Render a single page. If content overflows, recursively splits into the next page.
-	async renderPage() {
-		const { pageId, sectProps, children, isFirstPage, isLastPage, regions, layoutContext } = this.currentPage;
-		processElement(this.currentPage);
+	private async renderPage() {
+		const { pageId, sectProps, children, isFirstPage, isLastPage, regions, layoutContext } = this.session.currentPage;
+		processElement(this.session.currentPage);
 		const pageElement = this.createPage(this.className, sectProps);
 
 		renderStyleValues(this.document.documentPart.body.cssStyle, pageElement);
@@ -395,63 +358,56 @@ export class HtmlRendererSync {
 				regionArticle.dataset.sectionId = region.section?.sectionId;
 				regionArticle.dataset.breakBefore = region.breakBefore;
 				pageElement.appendChild(regionArticle);
-				this.currentPage.contentElement = pageElement;
-				this.currentPage.checkingOverflow = this.options.breakPages;
+				this.session.currentPage.contentElement = pageElement;
+				this.session.currentPage.checkingOverflow = this.options.breakPages;
 				isOverflow = await this.renderElements(region.children, regionArticle, { regionIndex });
 				if (isOverflow !== Overflow.FALSE && isOverflow !== Overflow.UNKNOWN && isOverflow !== Overflow.IGNORE) {
 					break;
 				}
 			}
 			if (isOverflow === Overflow.FALSE || isOverflow === Overflow.UNKNOWN || isOverflow === Overflow.IGNORE) {
-				this.currentPage.isSplit = true;
-				pages[pageIndex] = this.currentPage;
+				this.session.currentPage.isSplit = true;
+				pages[pageIndex] = this.session.currentPage;
 			}
-			this.currentPage.checkingOverflow = false;
+			this.session.currentPage.checkingOverflow = false;
 		} else {
-			// Single-region page: standard overflow detection path.
 			const contentElement = this.createPageContent(sectProps);
 			if (this.options.breakPages) {
 				contentElement.style.height = `${contentHeight}pt`;
 			} else {
 				contentElement.style.minHeight = `${contentHeight}pt`;
 			}
-			this.currentPage.contentElement = contentElement;
+			this.session.currentPage.contentElement = contentElement;
 			pageElement.appendChild(contentElement);
-			this.currentPage.checkingOverflow = true;
+			this.session.currentPage.checkingOverflow = true;
 			const is_overflow = await this.renderElements(children, contentElement);
 			if (is_overflow === Overflow.FALSE) {
-				this.currentPage.isSplit = true;
-				pages[pageIndex] = this.currentPage;
+				this.session.currentPage.isSplit = true;
+				pages[pageIndex] = this.session.currentPage;
 			}
-			this.currentPage.checkingOverflow = false;
+			this.session.currentPage.checkingOverflow = false;
 		}
 
 		if (this.options.renderFootnotes) {
-			await this.renderNotes(DomType.Footnotes, this.currentFootnoteIds, this.footnoteMap, pageElement);
+			await this.renderNotes(DomType.Footnotes, this.session.currentFootnoteIds, this.footnoteMap, pageElement);
 		}
 		if (this.options.renderEndnotes && isLastPage) {
-			await this.renderNotes(DomType.Endnotes, this.currentEndnoteIds, this.endnoteMap, pageElement);
+			await this.renderNotes(DomType.Endnotes, this.session.currentEndnoteIds, this.endnoteMap, pageElement);
 		}
 	}
 
-	// 创建Page
-	createPage(className: string, props: SectionProperties) {
+	private createPage(className: string, props: SectionProperties) {
 		return createPageFn(className, props, this.wrapper, {
 			ignoreWidth: this.options.ignoreWidth,
 			ignoreHeight: this.options.ignoreHeight,
 		});
 	}
 
-	// TODO 分栏：一个页面可能存在多个章节section，每个section拥有不同的分栏
-	// 多列分栏布局
-	createPageContent(props: SectionProperties): HTMLElement {
+	private createPageContent(props: SectionProperties): HTMLElement {
 		return createPageContentFn(props);
 	}
 
-	// TODO 分页不准确，页脚页码混乱，
-	// TODO 支持奇数页偶数页不同页眉页脚
-	// 渲染页眉/页脚的Ref
-	async renderHeaderFooterRef(refs: FooterHeaderReference[], props: SectionProperties, pageIndex: number, isFirstPage: boolean, layoutContext: PageLayoutContext | undefined, parent: HTMLElement) {
+	private async renderHeaderFooterRef(refs: FooterHeaderReference[], props: SectionProperties, pageIndex: number, isFirstPage: boolean, layoutContext: PageLayoutContext | undefined, parent: HTMLElement) {
 		return renderHeaderFooterRefFn(refs, props, pageIndex, isFirstPage, layoutContext, parent, this.pageRendererCallbacks());
 	}
 
@@ -461,27 +417,24 @@ export class HtmlRendererSync {
 			ignoreWidth: this.options.ignoreWidth,
 			ignoreHeight: this.options.ignoreHeight,
 			evenAndOddHeaders: this.document.settingsPart.settings.evenAndOddHeaders,
-			usedHeaderFooterParts: this.usedHeaderFooterParts,
-			setCurrentPart: part => { this.currentPart = part; },
+			usedHeaderFooterParts: this.session.usedHeaderFooterParts,
+			setCurrentPart: part => { this.session.currentPart = part; },
 			processElement: elem => processElement(elem),
 			renderHeaderFooter: (elem, tagName, parent) => this.renderHeaderFooter(elem, tagName, parent),
 		};
 	}
 
-	// TODO 字体太大，尾注位置不对
-	// 渲染脚注/尾注
-	async renderNotes(type: DomType = DomType.Footnotes, noteIds: string[], notesMap: Record<string, WmlBaseNote>, parent: HTMLElement) {
+	private async renderNotes(type: DomType = DomType.Footnotes, noteIds: string[], notesMap: Record<string, WmlBaseNote>, parent: HTMLElement) {
 		return renderNotesFn(type, noteIds, notesMap, parent, {
 			processElement: (e) => processElement(e),
 			renderChildren: (e, p) => this.renderChildren(e, p),
 		});
 	}
 
-	// 根据XML对象渲染多元素
-	async renderElements(children: OpenXmlElement[], parent: HTMLElement | Element | Text, splitContext?: RenderSplitContext): Promise<Overflow> {
+	private async renderElements(children: OpenXmlElement[], parent: HTMLElement | Element | Text, splitContext?: RenderSplitContext): Promise<Overflow> {
 		const overflows: Overflow[] = [];
 		const pages = this.document.documentPart.body.pages;
-		const { pageId } = this.currentPage;
+		const { pageId } = this.session.currentPage;
 		const pageIndex = pages.findIndex(p => p.pageId === pageId);
 		type RenderAction = 'continue' | 'break' | 'break-after-current';
 		const BREAKING_OVERFLOWS = new Set([Overflow.SELF, Overflow.TRUE, Overflow.FULL, Overflow.PART]);
@@ -495,7 +448,6 @@ export class HtmlRendererSync {
 			let overflow: Overflow = rendered?.dataset?.overflow as Overflow ?? Overflow.UNKNOWN;
 			let action: RenderAction = 'continue';
 
-			// First element on a page cannot be broken before — keep it and advance past.
 			const isFirstPageElement = elem.level === 2 && i === 0;
 
 			if (isFirstPageElement && BREAKING_OVERFLOWS.has(overflow)) {
@@ -537,16 +489,16 @@ export class HtmlRendererSync {
 					const overflowIndex = action === 'break-after-current' ? i + 1 : i;
 					if (overflowIndex < children.length) {
 						if (splitContext) {
-							splitRegionOnOverflow(this.currentPage, pages, pageIndex, splitContext.regionIndex, overflowIndex);
+							splitRegionOnOverflow(this.session.currentPage, pages, pageIndex, splitContext.regionIndex, overflowIndex);
 						} else {
-							splitOnOverflow(this.currentPage, pages, pageIndex, overflowIndex);
+							splitOnOverflow(this.session.currentPage, pages, pageIndex, overflowIndex);
 						}
-						processElement(this.currentPage);
-						this.currentPage = pages[pageIndex + 1];
+						processElement(this.session.currentPage);
+						this.session.currentPage = pages[pageIndex + 1];
 						await this.renderPage();
 					} else {
-						this.currentPage.isSplit = true;
-						pages[pageIndex] = this.currentPage;
+						this.session.currentPage.isSplit = true;
+						pages[pageIndex] = this.session.currentPage;
 					}
 				}
 				break;
@@ -556,8 +508,7 @@ export class HtmlRendererSync {
 		return inferOverflow(overflows);
 	}
 
-	// 根据XML对象渲染单个元素
-	async renderElement(elem: OpenXmlElement, parent?: HTMLElement | Element | Text): Promise<Node_DOM> {
+	private async renderElement(elem: OpenXmlElement, parent?: HTMLElement | Element | Text): Promise<Node_DOM> {
 		const oNode = await dispatchElement(elem, parent, this.dispatchContext());
 		if (oNode && oNode.nodeType === 1) {
 			oNode.dataset.tag = elem.type;
@@ -580,45 +531,39 @@ export class HtmlRendererSync {
 			mathCallbacks: () => this.mathCallbacks(),
 			fieldsCallbacks: () => this.fieldsCallbacks(),
 			drawingRenderContext: () => this.drawingRenderContext(),
-			tableCtx: this.tableCtx,
+			tableCtx: this.session.tableCtx,
 			className: this.className,
-			currentTabs: this.currentTabs,
-			currentFootnoteIds: this.currentFootnoteIds,
-			currentEndnoteIds: this.currentEndnoteIds,
+			currentTabs: this.session.currentTabs,
+			currentFootnoteIds: this.session.currentFootnoteIds,
+			currentEndnoteIds: this.session.currentEndnoteIds,
 			renderClass: (e, o) => renderClass(e, o, n => this.processStyleName(n)),
 			renderStyleValues: (s, o) => renderStyleValues(s, o),
 		};
 	}
 
-	isSourceAnchor(elem: OpenXmlElement): boolean {
+	private isSourceAnchor(elem: OpenXmlElement): boolean {
 		return elem.type === DomType.Paragraph || elem.type === DomType.Table || elem.type === DomType.Cell || elem.type === DomType.SectionBreak;
 	}
 
-	// 根据XML对象渲染子元素，并插入父级元素
-	async renderChildren(elem: OpenXmlElement, parent: HTMLElement | Element | Text): Promise<Overflow> {
+	private async renderChildren(elem: OpenXmlElement, parent: HTMLElement | Element | Text): Promise<Overflow> {
 		return await this.renderElements(elem.children, parent);
 	}
 
-	// 插入子元素，针对后代元素进行溢出检测
-	async appendChildren(parent: HTMLElement | Text, children: ChildrenType): Promise<Overflow> {
-		return appendAndMeasure(parent, children, this.currentPage);
+	private async appendChildren(parent: HTMLElement | Text, children: ChildrenType): Promise<Overflow> {
+		return appendAndMeasure(parent, children, this.session.currentPage);
 	}
 
-	async renderContainer(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, props?: Record<string, any>) {
+	private async renderContainer(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, props?: Record<string, any>) {
 		const oContainer = createElement(tagName, props);
 
 		oContainer.dataset.overflow = await this.renderChildren(elem, oContainer);
 		return oContainer;
 	}
 
-	async renderContainerNS(elem: OpenXmlElement, ns: string, tagName: string, props?: Record<string, any>) {
+	private async renderContainerNS(elem: OpenXmlElement, ns: string, tagName: string, props?: Record<string, any>) {
 		const parent = createElementNS(ns, tagName as any, props);
 		await this.renderChildren(elem, parent);
 		return parent;
-	}
-
-	mathJustificationToTextAlign(justification?: string) {
-		return mathJustificationToTextAlign(justification);
 	}
 
 	private mathCallbacks(): MathRendererCallbacks {
@@ -633,11 +578,11 @@ export class HtmlRendererSync {
 		};
 	}
 
-	resolveFieldRuns(runs: OpenXmlElement[]): OpenXmlElement[] {
+	private resolveFieldRuns(runs: OpenXmlElement[]): OpenXmlElement[] {
 		return resolveFieldRunsFn(runs, this.fieldsCallbacks());
 	}
 
-	resolveSimpleField(elem: WmlFieldSimple): OpenXmlElement[] {
+	private resolveSimpleField(elem: WmlFieldSimple): OpenXmlElement[] {
 		return resolveSimpleFieldFn(elem, this.fieldsCallbacks());
 	}
 
@@ -651,7 +596,7 @@ export class HtmlRendererSync {
 			findComment: (id) => this.document.commentsPart?.commentMap[id],
 			currentPageNumber: () => {
 				const pages = this.document.documentPart.body.pages ?? [];
-				return pages.findIndex(p => p.pageId === this.currentPage.pageId) + 1;
+				return pages.findIndex(p => p.pageId === this.session.currentPage.pageId) + 1;
 			},
 			pageCount: () => this.document.documentPart.body.pages?.length ?? 0,
 			renderChanges: () => this.options.renderChanges,
@@ -668,28 +613,22 @@ export class HtmlRendererSync {
 			resolveFieldRuns: (runs) => this.resolveFieldRuns(runs),
 			findStyle: (styleName) => this.findStyle(styleName),
 			numberingClass: (id, level) => this.numberingClass(id, level),
-			currentPageIsSplit: () => this.currentPage.isSplit,
-			currentSectionProperties: () => this.currentPage.sectProps,
+			currentPageIsSplit: () => this.session.currentPage.isSplit,
+			currentSectionProperties: () => this.session.currentPage.sectProps,
 			findExternalRelation: (id) => this.document.documentPart.rels.find(
 				it => it.id == id && it.targetMode === 'External'
 			),
 		};
 	}
 
-	renderKonva() {
-		const { stage, layer } = createKonvaFn(this.bodyContainer);
-		this.konva_stage = stage;
-		this.konva_layer = layer;
-	}
-
 	private drawingRenderContext(): DrawingRenderContext {
 		return {
 			document: this.document,
-			currentPart: this.currentPart,
+			currentPart: this.session.currentPart,
 			options: this.options,
 			className: this.className,
-			konvaStage: this.konva_stage,
-			konvaLayer: this.konva_layer,
+			konvaStage: this.session.konvaStage,
+			konvaLayer: this.session.konvaLayer,
 			appendChildren: (p, c) => this.appendChildren(p, c),
 			renderChildren: (e, p) => this.renderChildren(e, p),
 			renderElement: (e, p) => this.renderElement(e, p),
@@ -697,26 +636,19 @@ export class HtmlRendererSync {
 		};
 	}
 
-	// 渲染页眉页脚
-	async renderHeaderFooter(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, parent: HTMLElement) {
+	private async renderHeaderFooter(elem: OpenXmlElement, tagName: keyof HTMLElementTagNameMap, parent: HTMLElement) {
 		return renderHeaderFooterFn(elem, tagName, parent, {
 			renderChildren: (e, p) => this.renderChildren(e, p),
 			renderStyleValues: (s, o) => renderStyleValues(s, o),
 		});
 	}
 
-	// 查找内置默认style样式
-	findStyle(styleName: string) {
+	private findStyle(styleName: string) {
 		return styleName && this.styleMap?.[styleName];
 	}
 
-	tabStopClass() {
-		return `${this.className}-tab-stop`;
-	}
-
-	// 刷新tab制表符
-	refreshTabStops() {
-		for (const tab of this.currentTabs) {
+	private refreshTabStops() {
+		for (const tab of this.session.currentTabs) {
 			updateTabStop(tab.span, tab.stops, this.defaultTabSize, this.pointToPixelRatio);
 		}
 	}

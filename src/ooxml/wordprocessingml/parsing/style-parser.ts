@@ -2,39 +2,28 @@ import { IDomStyle, Ruleset } from '@docx/ooxml/wordprocessingml/document/model/
 import { parseParagraphProperties } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
 import { parseRunProperties } from '@docx/ooxml/wordprocessingml/document/model/run';
 import { parseLineSpacing } from '@docx/ooxml/wordprocessingml/document/model/spacing-between-lines';
-import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil } from '@docx/xml/parsing/parse-utils';
-
-// Callback for parseDefaultProperties which remains in DocumentParser
-export interface StyleParserCallbacks {
-	parseDefaultProperties(
-		elem: Element,
-		style?: Record<string, string>,
-		childStyle?: Record<string, string>,
-		handler?: (prop: Element) => boolean
-	): Record<string, string>;
-}
+import type { ParseContext } from './parse-context';
 
 export function parseStylesFile(
 	xstyles: Element,
-	options: DocumentParserOptions,
-	callbacks: StyleParserCallbacks
+	ctx: ParseContext
 ): IDomStyle[] {
-	let result: IDomStyle[] = [];
+	const result: IDomStyle[] = [];
 
 	xmlUtil.foreach(xstyles, n => {
 		switch (n.localName) {
 			case "style":
-				result.push(parseStyle(n, options, callbacks));
+				result.push(parseStyle(n, ctx));
 				break;
 
 			case "docDefaults":
-				result.push(parseDefaultStyles(n, options, callbacks));
+				result.push(parseDefaultStyles(n, ctx));
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Style File：${n.localName}`, 'color:#f75607');
 				}
 		}
@@ -45,10 +34,9 @@ export function parseStylesFile(
 
 export function parseDefaultStyles(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: StyleParserCallbacks
+	ctx: ParseContext
 ): IDomStyle {
-	let result = <IDomStyle>{
+	const result = <IDomStyle>{
 		basedOn: null,
 		id: null,
 		name: null,
@@ -59,23 +47,23 @@ export function parseDefaultStyles(
 	xmlUtil.foreach(node, c => {
 		switch (c.localName) {
 			case "rPrDefault": {
-				let rPr = xml.element(c, "rPr");
+				const rPr = xml.element(c, "rPr");
 				if (rPr) {
 					result.rulesets.push({
 						target: "span",
-						declarations: callbacks.parseDefaultProperties(rPr, {})
+						declarations: ctx.parseDefaultProperties(rPr, {})
 					});
 				}
 				break;
 			}
 
 			case "pPrDefault": {
-				let pPr = xml.element(c, "pPr");
+				const pPr = xml.element(c, "pPr");
 				if (pPr) {
-					let paragraphProperties = parseParagraphProperties(pPr, xml);
-					let ruleset = {
+					const paragraphProperties = parseParagraphProperties(pPr, xml);
+					const ruleset = {
 						target: "p",
-						declarations: callbacks.parseDefaultProperties(pPr, {})
+						declarations: ctx.parseDefaultProperties(pPr, {})
 					};
 					Object.assign(ruleset.declarations, parseLineSpacing(paragraphProperties));
 					result.rulesets.push(ruleset);
@@ -84,7 +72,7 @@ export function parseDefaultStyles(
 			}
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Default Style：${c.localName}`, 'color:#f75607');
 				}
 		}
@@ -95,10 +83,9 @@ export function parseDefaultStyles(
 
 export function parseStyle(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: StyleParserCallbacks
+	ctx: ParseContext
 ): IDomStyle {
-	let result: IDomStyle = <IDomStyle>{
+	const result: IDomStyle = <IDomStyle>{
 		basedOn: null,
 		id: null,
 		name: null,
@@ -135,14 +122,14 @@ export function parseStyle(
 				if (typeToLabelMap.hasOwnProperty(result.type)) {
 					result.label = typeToLabelMap[result.type];
 				} else {
-					if (options && options.debug) {
+					if (ctx.options && ctx.options.debug) {
 						console.warn(`DOCX:%c Unknown Style Type：${result.type}`, 'color:#f75607');
 					}
 				}
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Style Property：${attr.localName}`, 'color:#f75607');
 				}
 		}
@@ -208,9 +195,9 @@ export function parseStyle(
 			// Style Paragraph Properties
 			case "pPr": {
 				result.paragraphProps = parseParagraphProperties(n, xml);
-				let ruleset = {
+				const ruleset = {
 					target: "p",
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				};
 				Object.assign(ruleset.declarations, parseLineSpacing(result.paragraphProps));
 				result.rulesets.push(ruleset);
@@ -226,7 +213,7 @@ export function parseStyle(
 			case "rPr":
 				result.rulesets.push({
 					target: "span",
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				});
 				result.runProps = parseRunProperties(n, xml);
 				break;
@@ -245,7 +232,7 @@ export function parseStyle(
 			case "tblPr":
 				result.rulesets.push({
 					target: "td",
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				});
 				break;
 
@@ -254,7 +241,7 @@ export function parseStyle(
 				// TODO: maybe move to processor
 				result.rulesets.push({
 					target: "tr",
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				});
 				break;
 
@@ -262,13 +249,13 @@ export function parseStyle(
 			case "tcPr":
 				result.rulesets.push({
 					target: "td",
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				});
 				break;
 
 			// Style Conditional Table Formatting Properties
 			case "tblStylePr":
-				for (let s of parseTableStyle(n, options, callbacks)) {
+				for (const s of parseTableStyle(n, ctx)) {
 					result.rulesets.push(s);
 				}
 				break;
@@ -284,7 +271,7 @@ export function parseStyle(
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Style element：${n.localName}`, 'color:blue');
 				}
 		}
@@ -296,12 +283,11 @@ export function parseStyle(
 // TODO: multi-level nested table style rules are not yet applied
 export function parseTableStyle(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: StyleParserCallbacks
+	ctx: ParseContext
 ): Ruleset[] {
-	let result: Ruleset[] = [];
+	const result: Ruleset[] = [];
 
-	let type = xml.attr(node, "type");
+	const type = xml.attr(node, "type");
 	let selector = "";
 	let modifier = "";
 
@@ -345,11 +331,11 @@ export function parseTableStyle(
 	xmlUtil.foreach(node, n => {
 		switch (n.localName) {
 			case "pPr": {
-				let paragraphProperties = parseParagraphProperties(n, xml);
-				let ruleset = {
+				const paragraphProperties = parseParagraphProperties(n, xml);
+				const ruleset = {
 					target: `${selector} p`,
 					modifier: modifier,
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				};
 				Object.assign(ruleset.declarations, parseLineSpacing(paragraphProperties));
 				result.push(ruleset);
@@ -360,7 +346,7 @@ export function parseTableStyle(
 				result.push({
 					target: `${selector} span`,
 					modifier: modifier,
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				});
 				break;
 
@@ -369,12 +355,12 @@ export function parseTableStyle(
 				result.push({
 					target: selector, // TODO: maybe move to processor
 					modifier: modifier,
-					declarations: callbacks.parseDefaultProperties(n, {})
+					declarations: ctx.parseDefaultProperties(n, {})
 				});
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Table Style：${n.localName}`, 'color:#f75607');
 				}
 		}

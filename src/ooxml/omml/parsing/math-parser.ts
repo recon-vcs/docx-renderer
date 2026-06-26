@@ -3,6 +3,7 @@ import type { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil } from '@docx/xml/parsing/parse-utils';
 import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
+import type { ParseContext } from '@docx/ooxml/wordprocessingml/parsing/parse-context';
 
 const mmlTagMap: Record<string, DomType> = {
 	"oMath": DomType.MmlMath,
@@ -32,14 +33,9 @@ const mmlTagMap: Record<string, DomType> = {
 	"groupChr": DomType.MmlGroupChar,
 };
 
-export interface MathParserCallbacks {
-	parseRun(node: Element): WmlRun;
-}
-
 export function parseMathElement(
 	elem: Element,
-	options: DocumentParserOptions,
-	callbacks: MathParserCallbacks
+	ctx: ParseContext,
 ): OpenXmlElement {
 	const propsTag = `${elem.localName}Pr`;
 	const mathElement: OpenXmlElement = {
@@ -51,13 +47,13 @@ export function parseMathElement(
 		const childType = mmlTagMap[child.localName];
 
 		if (childType) {
-			mathElement.children.push(parseMathElement(child, options, callbacks));
+			mathElement.children.push(parseMathElement(child, ctx));
 		} else if (child.localName == "r") {
-			let wmlRun: WmlRun = callbacks.parseRun(child);
+			const wmlRun: WmlRun = ctx.parseRun(child);
 			wmlRun.type = DomType.MmlRun;
 			mathElement.children.push(wmlRun);
 		} else if (child.localName == propsTag) {
-			mathElement.props = parseMathProperties(child, options);
+			mathElement.props = parseMathProperties(child, ctx.options);
 		}
 	});
 
@@ -67,8 +63,8 @@ export function parseMathElement(
 export function parseMathProperties(
 	elem: Element,
 	options: DocumentParserOptions
-): Record<string, any> {
-	const result: Record<string, any> = {};
+): Record<string, string | boolean> {
+	const result: Record<string, string | boolean> = {};
 
 	for (const el of xml.elements(elem)) {
 		switch (el.localName) {

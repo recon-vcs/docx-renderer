@@ -1,44 +1,30 @@
 import { DomType, OpenXmlElement, WmlTable, WmlTableCell, WmlTableColumn, WmlTableRow } from '@docx/ooxml/wordprocessingml/document/model/dom';
-import type { WmlParagraph } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
-import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
 import xml from '@docx/xml/parsing/xml-parser';
 import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
-
-// Callbacks required for cross-module calls from parseTableCell
-export interface TableParserCallbacks {
-	parseParagraph(node: Element): WmlParagraph;
-	parseTable(node: Element): WmlTable;
-	parseDefaultProperties(
-		elem: Element,
-		style?: Record<string, string>,
-		childStyle?: Record<string, string>,
-		handler?: (prop: Element) => boolean
-	): Record<string, string>;
-}
+import type { ParseContext } from './parse-context';
 
 export function parseTable(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: TableParserCallbacks
+	ctx: ParseContext
 ): WmlTable {
-	let result: WmlTable = { type: DomType.Table, children: [] };
+	const result: WmlTable = { type: DomType.Table, children: [] };
 
 	xmlUtil.foreach(node, c => {
 		switch (c.localName) {
 			case "tblPr":
-				parseTableProperties(c, result, options, callbacks);
+				parseTableProperties(c, result, ctx);
 				break;
 
 			case "tblGrid":
-				result.columns = parseTableColumns(c, options);
+				result.columns = parseTableColumns(c, ctx);
 				break;
 
 			case "tr":
-				result.children.push(parseTableRow(c, options, callbacks));
+				result.children.push(parseTableRow(c, ctx));
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Table Element：${c.localName}`, 'color:#f75607');
 				}
 		}
@@ -47,8 +33,8 @@ export function parseTable(
 	return result;
 }
 
-export function parseTableColumns(node: Element, options: DocumentParserOptions): WmlTableColumn[] {
-	let result: WmlTableColumn[] = [];
+export function parseTableColumns(node: Element, ctx: ParseContext): WmlTableColumn[] {
+	const result: WmlTableColumn[] = [];
 
 	xmlUtil.foreach(node, n => {
 		switch (n.localName) {
@@ -61,7 +47,7 @@ export function parseTableColumns(node: Element, options: DocumentParserOptions)
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Table Columns Element：${n.localName}`, 'color:#f75607');
 				}
 		}
@@ -73,13 +59,12 @@ export function parseTableColumns(node: Element, options: DocumentParserOptions)
 export function parseTableProperties(
 	elem: Element,
 	table: WmlTable,
-	options: DocumentParserOptions,
-	callbacks: TableParserCallbacks
+	ctx: ParseContext
 ): void {
 	table.cssStyle = {};
 	table.cellStyle = {};
 
-	callbacks.parseDefaultProperties(elem, table.cssStyle, table.cellStyle, c => {
+	ctx.parseDefaultProperties(elem, table.cssStyle, table.cellStyle, c => {
 		switch (c.localName) {
 			case "tblStyle":
 				table.styleName = xml.attr(c, "val");
@@ -91,7 +76,7 @@ export function parseTableProperties(
 
 			case "tblpPr":
 				// Floating table position
-				parseTablePosition(c, table, options);
+				parseTablePosition(c, table, ctx);
 				break;
 
 			case "tblStyleColBandSize":
@@ -122,7 +107,7 @@ export function parseTableProperties(
 			break;
 
 		default:
-			if (options.debug) {
+			if (ctx.options.debug) {
 				console.warn(`DOCX:%c Unknown Table Align：${table.cssStyle["text-align"]}`, 'color:#f75607');
 			}
 	}
@@ -132,17 +117,17 @@ export function parseTableProperties(
 export function parseTablePosition(
 	node: Element,
 	table: WmlTable,
-	options: DocumentParserOptions
+	ctx: ParseContext
 ): void {
 	// Floating tables displace subsequent elements; ignored by default
-	if (options.ignoreTableWrap) {
+	if (ctx.options.ignoreTableWrap) {
 		return;
 	}
 
-	let topFromText = xml.lengthAttr(node, "topFromText");
-	let bottomFromText = xml.lengthAttr(node, "bottomFromText");
-	let rightFromText = xml.lengthAttr(node, "rightFromText");
-	let leftFromText = xml.lengthAttr(node, "leftFromText");
+	const topFromText = xml.lengthAttr(node, "topFromText");
+	const bottomFromText = xml.lengthAttr(node, "bottomFromText");
+	const rightFromText = xml.lengthAttr(node, "rightFromText");
+	const leftFromText = xml.lengthAttr(node, "leftFromText");
 
 	table.cssStyle["float"] = 'left';
 	table.cssStyle["margin-bottom"] = values.addSize(table.cssStyle["margin-bottom"], bottomFromText);
@@ -153,23 +138,22 @@ export function parseTablePosition(
 
 export function parseTableRow(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: TableParserCallbacks
+	ctx: ParseContext
 ): WmlTableRow {
-	let result: WmlTableRow = { type: DomType.Row, children: [] };
+	const result: WmlTableRow = { type: DomType.Row, children: [] };
 
 	xmlUtil.foreach(node, c => {
 		switch (c.localName) {
 			case "tc":
-				result.children.push(parseTableCell(c, options, callbacks));
+				result.children.push(parseTableCell(c, ctx));
 				break;
 
 			case "trPr":
-				parseTableRowProperties(c, result, options, callbacks);
+				parseTableRowProperties(c, result, ctx);
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Table Row Element：${c.localName}`, 'color:#f75607');
 				}
 		}
@@ -181,10 +165,9 @@ export function parseTableRow(
 export function parseTableRowProperties(
 	elem: Element,
 	row: WmlTableRow,
-	options: DocumentParserOptions,
-	callbacks: TableParserCallbacks
+	ctx: ParseContext
 ): void {
-	row.cssStyle = callbacks.parseDefaultProperties(elem, {}, null, c => {
+	row.cssStyle = ctx.parseDefaultProperties(elem, {}, null, c => {
 		switch (c.localName) {
 			case "cnfStyle":
 				row.className = values.classNameOfCnfStyle(c);
@@ -205,27 +188,26 @@ export function parseTableRowProperties(
 
 export function parseTableCell(
 	node: Element,
-	options: DocumentParserOptions,
-	callbacks: TableParserCallbacks
+	ctx: ParseContext
 ): OpenXmlElement {
-	let result: WmlTableCell = { type: DomType.Cell, children: [] };
+	const result: WmlTableCell = { type: DomType.Cell, children: [] };
 
 	xmlUtil.foreach(node, c => {
 		switch (c.localName) {
 			case "tbl":
-				result.children.push(callbacks.parseTable(c));
+				result.children.push(ctx.parseTable(c));
 				break;
 
 			case "p":
-				result.children.push(callbacks.parseParagraph(c));
+				result.children.push(ctx.parseParagraph(c));
 				break;
 
 			case "tcPr":
-				parseTableCellProperties(c, result, options, callbacks);
+				parseTableCellProperties(c, result, ctx);
 				break;
 
 			default:
-				if (options.debug) {
+				if (ctx.options.debug) {
 					console.warn(`DOCX:%c Unknown Table Cell Element：${c.localName}`, 'color:#f75607');
 				}
 		}
@@ -237,10 +219,9 @@ export function parseTableCell(
 export function parseTableCellProperties(
 	elem: Element,
 	cell: WmlTableCell,
-	options: DocumentParserOptions,
-	callbacks: TableParserCallbacks
+	ctx: ParseContext
 ): void {
-	cell.cssStyle = callbacks.parseDefaultProperties(elem, {}, null, c => {
+	cell.cssStyle = ctx.parseDefaultProperties(elem, {}, null, c => {
 		switch (c.localName) {
 			case "gridSpan":
 				cell.span = xml.intAttr(c, "val", null);
