@@ -483,6 +483,8 @@ export class HtmlRendererSync {
 		const pages = this.document.documentPart.body.pages;
 		const { pageId } = this.currentPage;
 		const pageIndex = pages.findIndex(p => p.pageId === pageId);
+		type RenderAction = 'continue' | 'break' | 'break-after-current';
+		const BREAKING_OVERFLOWS = new Set([Overflow.SELF, Overflow.TRUE, Overflow.FULL, Overflow.PART]);
 
 		for (let i = 0; i < children.length; i++) {
 			const elem = children[i];
@@ -491,46 +493,40 @@ export class HtmlRendererSync {
 
 			const rendered = await this.renderElement(elem, parent);
 			let overflow: Overflow = rendered?.dataset?.overflow as Overflow ?? Overflow.UNKNOWN;
-			let action = 'continue';
-			const acceptFirstOverflow = elem.level === 2 && i === 0;
+			let action: RenderAction = 'continue';
 
-			switch (overflow) {
-				case Overflow.SELF:
-					if (acceptFirstOverflow) {
-						action = 'break-after-current';
+			// First element on a page cannot be broken before — keep it and advance past.
+			const isFirstPageElement = elem.level === 2 && i === 0;
+
+			if (isFirstPageElement && BREAKING_OVERFLOWS.has(overflow)) {
+				action = 'break-after-current';
+			} else {
+				switch (overflow) {
+					case Overflow.SELF:
+						elem.breakIndex.add(0);
+						elem.parent.breakIndex.add(i);
+						removeElements(rendered, parent);
+						action = 'break';
 						break;
-					}
-					elem.breakIndex.add(0);
-					elem.parent.breakIndex.add(i);
-					removeElements(rendered, parent);
-					action = 'break';
-					break;
 
-				case Overflow.TRUE:
-				case Overflow.FULL:
-					if (acceptFirstOverflow) {
-						action = 'break-after-current';
+					case Overflow.TRUE:
+					case Overflow.FULL:
+						elem.parent.breakIndex.add(i);
+						if (elem.type !== DomType.Cell) removeElements(rendered, parent);
+						action = 'break';
 						break;
-					}
-					elem.parent.breakIndex.add(i);
-					if (elem.type !== DomType.Cell) removeElements(rendered, parent);
-					action = 'break';
-					break;
 
-				case Overflow.PART:
-					if (acceptFirstOverflow) {
-						action = 'break-after-current';
+					case Overflow.PART:
+						elem.parent.breakIndex.add(i);
+						action = 'break';
 						break;
-					}
-					elem.parent.breakIndex.add(i);
-					action = 'break';
-					break;
 
-				default:
-					action = 'continue';
-					if (overflow !== Overflow.FALSE && overflow !== Overflow.UNKNOWN && overflow !== Overflow.IGNORE && this.options.debug) {
-						console.error('unhandled overflow', overflow, elem);
-					}
+					default:
+						action = 'continue';
+						if (overflow !== Overflow.FALSE && overflow !== Overflow.UNKNOWN && overflow !== Overflow.IGNORE && this.options.debug) {
+							console.error('unhandled overflow', overflow, elem);
+						}
+				}
 			}
 
 			if (elem.type === DomType.Cell) action = 'continue';
