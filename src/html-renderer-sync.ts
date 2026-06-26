@@ -26,6 +26,10 @@ import Konva from 'konva';
 import type { Stage } from 'konva/lib/Stage';
 import type { Layer } from 'konva/lib/Layer';
 import type { Group } from 'konva/lib/Group';
+import { Overflow, ChildrenType, createElement, createSvgElement, createElementNS, removeAllElements, appendChildren, removeElements, createStyleElement, appendComment, checkOverflow, findParent } from './render/dom-utils';
+import { TableContext, CellPos, CellVerticalMergeType, renderTable as renderTableFn, renderTableColumns as renderTableColumnsFn, renderTableRow as renderTableRowFn, renderTableCell as renderTableCellFn } from './render/table-renderer';
+import { renderNotes as renderNotesFn, renderFootnoteReference as renderFootnoteReferenceFn, renderEndnoteReference as renderEndnoteReferenceFn } from './render/notes-renderer';
+import { MathRendererCallbacks, mathJustificationToTextAlign, renderMmlMathParagraph as renderMmlMathParagraphFn, renderMmlRadical as renderMmlRadicalFn, renderMmlDelimiter as renderMmlDelimiterFn, renderMmlNary as renderMmlNaryFn, renderMmlPreSubSuper as renderMmlPreSubSuperFn, renderMmlGroupChar as renderMmlGroupCharFn, renderMmlBar as renderMmlBarFn, renderMmlRun as renderMmlRunFn, renderMllList as renderMllListFn } from './render/math-renderer';
 
 const ns = {
 	html: 'http://www.w3.org/1999/xhtml',
@@ -33,32 +37,8 @@ const ns = {
 	mathML: 'http://www.w3.org/1998/Math/MathML',
 };
 
-interface CellPos {
-	col: number;
-	row: number;
-}
-
-type CellVerticalMergeType = Record<number, HTMLTableCellElement>;
-
 interface Node_DOM extends Node, Text {
 	dataset: DOMStringMap;
-}
-
-enum Overflow {
-	// 已溢出
-	TRUE = 'true',
-	// 未溢出
-	FALSE = 'false',
-	// 插入元素之后，CSS样式的原因，元素自身溢出
-	SELF = 'self',
-	// 插入元素children之后，全部child溢出
-	FULL = 'full',
-	// 插入元素children之后，一部分child溢出
-	PART = 'part',
-	// 未执行溢出检测
-	UNKNOWN = 'undetected',
-	// 忽略溢出检测
-	IGNORE = 'ignore',
 }
 
 // HTML渲染器
@@ -77,14 +57,13 @@ export class HtmlRendererSync {
 
 	// 当前操作的Page
 	currentPage: Page;
-	// 表格垂直合并集合，用于嵌套表格
-	tableVerticalMerges: CellVerticalMergeType[] = [];
-	// 当前Table的垂直合并
-	currentVerticalMerge: CellVerticalMergeType = null;
-	// 表格行列位置集合，用于嵌套表格
-	tableCellPositions: CellPos[] = [];
-	// 当前Table的行列位置
-	currentCellPosition: CellPos = null;
+	// Table rendering context (cell position + vertical-merge stacks for nested tables)
+	tableCtx: TableContext = {
+		tableVerticalMerges: [],
+		currentVerticalMerge: null,
+		tableCellPositions: [],
+		currentCellPosition: null,
+	};
 
 	footnoteMap: Record<string, WmlFootnote> = {};
 	endnoteMap: Record<string, WmlEndnote> = {};
@@ -1365,21 +1344,10 @@ export class HtmlRendererSync {
 	// TODO 字体太大，尾注位置不对
 	// 渲染脚注/尾注
 	async renderNotes(type: DomType = DomType.Footnotes, noteIds: string[], notesMap: Record<string, WmlBaseNote>, parent: HTMLElement) {
-		// 筛选出这一页的Note元素集合
-		const children: WmlBaseNote[] = noteIds.map(id => notesMap[id]).filter(x => x);
-
-		if (children.length > 0) {
-			const oList = createElement('ol', null);
-			// 生成Notes父级元素
-			let notes = type === DomType.Footnotes ? new WmlFootnotes() : new WmlEndnotes();
-			// 设置children子元素
-			notes.children = children;
-			// 递归建立元素的parent父级关系
-			this.processElement(notes);
-			// 渲染元素
-			await this.renderChildren(notes, oList);
-			parent.appendChild(oList);
-		}
+		return renderNotesFn(type, noteIds, notesMap, parent, {
+			processElement: (e) => this.processElement(e),
+			renderChildren: (e, p) => this.renderChildren(e, p),
+		});
 	}
 
 	// 根据XML对象渲染出多元素
@@ -2079,28 +2047,23 @@ export class HtmlRendererSync {
 	}
 
 	async renderMmlMathParagraph(elem: OpenXmlElement) {
-		const oContainer = createElement('span');
-
-		oContainer.classList.add(`${this.className}-math-paragraph`);
-		oContainer.style.display = 'block';
-		oContainer.style.textAlign = this.mathJustificationToTextAlign(elem.props?.justification);
-		oContainer.style.textIndent = '0px';
-		oContainer.dataset.overflow = await this.renderChildren(elem, oContainer);
-
-		return oContainer;
+		return renderMmlMathParagraphFn(elem, this.mathCallbacks());
 	}
 
 	mathJustificationToTextAlign(justification?: string) {
-		switch (justification) {
-			case 'left':
-				return 'left';
-			case 'right':
-				return 'right';
-			case 'center':
-			case 'centerGroup':
-			default:
-				return 'center';
-		}
+		return mathJustificationToTextAlign(justification);
+	}
+
+	private mathCallbacks(): MathRendererCallbacks {
+		return {
+			renderElement: (e, p) => this.renderElement(e, p as HTMLElement) as any,
+			renderElements: (es, p) => this.renderElements(es, p as HTMLElement),
+			renderChildren: (e, p) => this.renderChildren(e, p as HTMLElement),
+			renderContainerNS: (e, n, t, pr) => this.renderContainerNS(e, n, t, pr),
+			renderClass: (e, o) => this.renderClass(e, o as HTMLElement),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+			className: this.className,
+		};
 	}
 
 	// Evaluates PAGE/NUMPAGES field codes in-place. Word stores these as a
@@ -2342,135 +2305,37 @@ export class HtmlRendererSync {
 	}
 
 	async renderTable(elem: WmlTable, parent: HTMLElement) {
-		const oTable = createElement('table');
-		// 生成表格的uuid标识，
-		oTable.dataset.uuid = uuid();
-		// 表格行列位置集合，用于嵌套表格
-		this.tableCellPositions.push(this.currentCellPosition);
-		// 表格垂直合并集合，用于嵌套表格
-		this.tableVerticalMerges.push(this.currentVerticalMerge);
-		// 当前Table的垂直合并
-		this.currentVerticalMerge = {};
-		// 当前Table的行列位置
-		this.currentCellPosition = { col: 0, row: 0 };
-		// 渲染class
-		this.renderClass(elem, oTable);
-		// 渲染style
-		this.renderStyleValues(elem.cssStyle, oTable);
-		// 溢出标识
-		let is_overflow: Overflow;
-		// oTable作为子元素插入,针对此元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oTable);
-		if (is_overflow === Overflow.TRUE) {
-			oTable.dataset.overflow = Overflow.SELF;
-
-			return oTable;
-		}
-		// 渲染表格column列
-		if (elem.columns) {
-			this.renderTableColumns(elem.columns, oTable);
-		}
-		// 针对后代子元素进行溢出检测
-		oTable.dataset.overflow = await this.renderChildren(elem, oTable);
-
-		// 处理完当前的表格，移除
-		this.currentVerticalMerge = this.tableVerticalMerges.pop();
-		// 处理完当前的表格，移除
-		this.currentCellPosition = this.tableCellPositions.pop();
-
-		return oTable;
+		return renderTableFn(elem, parent, this.tableCtx, {
+			renderChildren: (e, p) => this.renderChildren(e, p),
+			appendChildren: (p, c) => this.appendChildren(p, c),
+			renderClass: (e, o) => this.renderClass(e, o),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+		});
 	}
 
 	// 表格--列
 	renderTableColumns(columns: WmlTableColumn[], parent: HTMLElement) {
-		const oColGroup = createElement('colgroup');
-
-		// 插入oColGroup元素,忽略溢出检测
-		appendChildren(parent, oColGroup);
-
-		for (const col of columns) {
-			const oCol = createElement('col');
-
-			if (col.width) {
-				oCol.style.width = col.width;
-			}
-			// 插入子元素,忽略溢出检测
-			appendChildren(oColGroup, oCol);
-		}
-
-		return oColGroup;
+		return renderTableColumnsFn(columns, parent);
 	}
 
 	// 表格--行
 	async renderTableRow(elem: OpenXmlElement, parent: HTMLElement) {
-		// 创建元素
-		const oTableRow = createElement('tr');
-		// 初始化列位置为0
-		this.currentCellPosition.col = 0;
-		// 渲染class
-		this.renderClass(elem, oTableRow);
-		// 渲染style
-		this.renderStyleValues(elem.cssStyle, oTableRow);
-		// 溢出标识
-		let is_overflow: Overflow;
-		// 作为子元素插入,针对此元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oTableRow);
-		if (is_overflow === Overflow.TRUE) {
-			oTableRow.dataset.overflow = Overflow.SELF;
-
-			return oTableRow;
-		}
-		// 针对后代子元素进行溢出检测
-		oTableRow.dataset.overflow = await this.renderChildren(elem, oTableRow);
-		// 行位置+1
-		this.currentCellPosition.row++;
-
-		return oTableRow;
+		return renderTableRowFn(elem, parent, this.tableCtx, {
+			renderChildren: (e, p) => this.renderChildren(e, p),
+			appendChildren: (p, c) => this.appendChildren(p, c),
+			renderClass: (e, o) => this.renderClass(e, o),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+		});
 	}
 
 	// 表格--单元格
 	async renderTableCell(elem: WmlTableCell, parent: HTMLElement) {
-		// create td element which has default attribute colSpan = 1,rowSpan = 1
-		const oTableCell = createElement('td');
-		// 获取当前cell的列位置
-		const key = this.currentCellPosition.col;
-		// 当前单元格是否合并
-		if (elem.verticalMerge) {
-			// Start/Restart Merged Region.
-			if (elem.verticalMerge == 'restart') {
-				this.currentVerticalMerge[key] = oTableCell;
-				oTableCell.rowSpan = 1;
-			} else if (this.currentVerticalMerge[key]) {
-				// Continue Merged Region.
-				this.currentVerticalMerge[key].rowSpan += 1;
-				oTableCell.style.display = 'none';
-			}
-		} else {
-			this.currentVerticalMerge[key] = null;
-		}
-		// 渲染class
-		this.renderClass(elem, oTableCell);
-		// 渲染style
-		this.renderStyleValues(elem.cssStyle, oTableCell);
-		// 根据span属性设置列合并
-		if (elem.span) {
-			oTableCell.colSpan = elem.span;
-		}
-		// 递增当前cell的列位置
-		this.currentCellPosition.col += oTableCell.colSpan;
-		// 溢出标识
-		let is_overflow: Overflow;
-		// oTableCell作为子元素插入，先执行溢出检测，方便对后代元素进行溢出检测
-		is_overflow = await this.appendChildren(parent, oTableCell);
-		if (is_overflow === Overflow.TRUE) {
-			oTableCell.dataset.overflow = Overflow.SELF;
-
-			return oTableCell;
-		}
-		// 针对后代子元素进行溢出检测
-		oTableCell.dataset.overflow = await this.renderChildren(elem, oTableCell);
-
-		return oTableCell;
+		return renderTableCellFn(elem, parent, this.tableCtx, {
+			renderChildren: (e, p) => this.renderChildren(e, p),
+			appendChildren: (p, c) => this.appendChildren(p, c),
+			renderClass: (e, o) => this.renderClass(e, o),
+			renderStyleValues: (s, o) => this.renderStyleValues(s, o),
+		});
 	}
 
 	async renderHyperlink(elem: WmlHyperlink, parent: HTMLElement) {
@@ -2922,18 +2787,12 @@ export class HtmlRendererSync {
 
 	// 渲染脚注
 	renderFootnoteReference(elem: WmlNoteReference) {
-		const oSup = createElement('sup');
-		this.currentFootnoteIds.push(elem.id);
-		oSup.textContent = `${this.currentFootnoteIds.length}`;
-		return oSup;
+		return renderFootnoteReferenceFn(elem, this.currentFootnoteIds);
 	}
 
 	// 渲染尾注
 	renderEndnoteReference(elem: WmlNoteReference) {
-		const oSup = createElement('sup');
-		this.currentEndnoteIds.push(elem.id);
-		oSup.textContent = `${this.currentEndnoteIds.length}`;
-		return oSup;
+		return renderEndnoteReferenceFn(elem, this.currentEndnoteIds);
 	}
 
 	async renderVmlElement(elem: VmlElement, parent?: HTMLElement): Promise<SVGElement> {
@@ -2989,141 +2848,35 @@ export class HtmlRendererSync {
 	}
 
 	async renderMmlRadical(elem: OpenXmlElement) {
-		const base = elem.children.find(el => el.type == DomType.MmlBase);
-		let oParent: MathMLElement;
-		if (elem.props?.hideDegree) {
-			oParent = createElementNS(ns.mathML, 'msqrt', null);
-			await this.renderElements([base], oParent);
-			return oParent;
-		}
-
-		const degree = elem.children.find(el => el.type == DomType.MmlDegree);
-		oParent = createElementNS(ns.mathML, 'mroot', null);
-		await this.renderElements([base, degree], oParent);
-		return oParent;
+		return renderMmlRadicalFn(elem, this.mathCallbacks());
 	}
 
-	async renderMmlDelimiter(elem: OpenXmlElement): Promise<MathMLElement> {
-		const oMrow: MathMLElement = createElementNS(ns.mathML, 'mrow', null);
-		// 开始Char
-		let oBegin: MathMLElement = createElementNS(ns.mathML, "mo", null, [elem.props.beginChar ?? '(']);
-		appendChildren(oMrow, oBegin);
-		// 子元素
-		await this.renderElements(elem.children, oMrow);
-		// 结束char
-		let oEnd: MathMLElement = createElementNS(ns.mathML, "mo", null, [elem.props.endChar ?? ')']);
-		appendChildren(oMrow, oEnd);
-
-		return oMrow;
+	async renderMmlDelimiter(elem: OpenXmlElement) {
+		return renderMmlDelimiterFn(elem, this.mathCallbacks());
 	}
 
-	async renderMmlNary(elem: OpenXmlElement): Promise<MathMLElement> {
-		const children = [];
-		const grouped = _.keyBy(elem.children, 'type');
-
-		const sup = grouped[DomType.MmlSuperArgument];
-		const sub = grouped[DomType.MmlSubArgument];
-
-		let supElem: MathMLElement = sup ? createElementNS(ns.mathML, "mo", null, asArray(await this.renderElement(sup))) : null;
-		let subElem: MathMLElement = sub ? createElementNS(ns.mathML, "mo", null, asArray(await this.renderElement(sub))) : null;
-
-		let charElem: MathMLElement = createElementNS(ns.mathML, "mo", null, [elem.props?.char ?? '\u222B']);
-
-		if (supElem || subElem) {
-			children.push(createElementNS(ns.mathML, "munderover", null, [charElem, subElem, supElem]));
-		} else if (supElem) {
-			children.push(createElementNS(ns.mathML, "mover", null, [charElem, supElem]));
-		} else if (subElem) {
-			children.push(createElementNS(ns.mathML, "munder", null, [charElem, subElem]));
-		} else {
-			children.push(charElem);
-		}
-
-		const oMrow: MathMLElement = createElementNS(ns.mathML, 'mrow', null);
-
-		appendChildren(oMrow, children);
-
-		await this.renderElements(grouped[DomType.MmlBase].children, oMrow);
-
-		return oMrow;
+	async renderMmlNary(elem: OpenXmlElement) {
+		return renderMmlNaryFn(elem, this.mathCallbacks());
 	}
 
 	async renderMmlPreSubSuper(elem: OpenXmlElement) {
-		const children = [];
-		const grouped = _.keyBy(elem.children, 'type');
-
-		const sup = grouped[DomType.MmlSuperArgument];
-		const sub = grouped[DomType.MmlSubArgument];
-		let supElem: MathMLElement = sup ? createElementNS(ns.mathML, "mo", null, asArray(await this.renderElement(sup))) : null;
-		let subElem: MathMLElement = sub ? createElementNS(ns.mathML, "mo", null, asArray(await this.renderElement(sub))) : null;
-		let stubElem: MathMLElement = createElementNS(ns.mathML, "mo", null);
-
-		children.push(createElementNS(ns.mathML, "msubsup", null, [stubElem, subElem, supElem]));
-
-		const oMrow = createElementNS(ns.mathML, 'mrow', null);
-
-		appendChildren(oMrow, children);
-
-		await this.renderElements(grouped[DomType.MmlBase].children, oMrow);
-
-		return oMrow;
+		return renderMmlPreSubSuperFn(elem, this.mathCallbacks());
 	}
 
 	async renderMmlGroupChar(elem: OpenXmlElement) {
-		let tagName = elem.props.verticalJustification === "bot" ? "mover" : "munder";
-		let oGroupChar = await this.renderContainerNS(elem, ns.mathML, tagName);
-
-		if (elem.props.char) {
-			const oMo = createElementNS(ns.mathML, 'mo', null, [elem.props.char]);
-			appendChildren(oGroupChar, oMo);
-		}
-
-		return oGroupChar;
+		return renderMmlGroupCharFn(elem, this.mathCallbacks());
 	}
 
 	async renderMmlBar(elem: OpenXmlElement) {
-		let oMrow = await this.renderContainerNS(elem, ns.mathML, "mrow") as MathMLElement;
-
-		switch (elem.props.position) {
-			case 'top':
-				oMrow.style.textDecoration = 'overline';
-				break;
-			case 'bottom':
-				oMrow.style.textDecoration = 'underline';
-				break;
-		}
-
-		return oMrow;
+		return renderMmlBarFn(elem, this.mathCallbacks());
 	}
 
 	async renderMmlRun(elem: OpenXmlElement) {
-		const oMs = createElementNS(ns.mathML, 'ms') as HTMLElement;
-
-		this.renderClass(elem, oMs);
-		this.renderStyleValues(elem.cssStyle, oMs);
-		await this.renderChildren(elem, oMs);
-
-		return oMs;
+		return renderMmlRunFn(elem, this.mathCallbacks());
 	}
 
 	async renderMllList(elem: OpenXmlElement) {
-		const oMtable = createElementNS(ns.mathML, 'mtable') as HTMLElement;
-		// 添加class类
-		this.renderClass(elem, oMtable);
-		// 渲染style样式
-		this.renderStyleValues(elem.cssStyle, oMtable);
-
-		for (const child of elem.children) {
-			const oChild = await this.renderElement(child);
-
-			const oMtd = createElementNS(ns.mathML, 'mtd', null, [oChild]);
-
-			const oMtr = createElementNS(ns.mathML, 'mtr', null, [oMtd]);
-
-			appendChildren(oMtable, oMtr);
-		}
-
-		return oMtable;
+		return renderMllListFn(elem, this.mathCallbacks());
 	}
 
 	// 设置元素style样式
@@ -3181,169 +2934,4 @@ export class HtmlRendererSync {
 	}
 }
 
-/*
- *  操作DOM元素的函数方法
- */
-
-// 元素类型
-type ChildrenType = Node[] | Node | Element[] | Element;
-
-// 根据标签名tagName创建元素
-function createElement<T extends keyof HTMLElementTagNameMap>(tagName: T, props?: Partial<Record<keyof HTMLElementTagNameMap[T], any>>): HTMLElementTagNameMap[T] {
-	return createElementNS(null, tagName, props);
-}
-
-// 根据标签名tagName创建svg元素
-function createSvgElement<T extends keyof SVGElementTagNameMap>(tagName: T, props?: Partial<Record<keyof SVGElementTagNameMap[T], any>>): SVGElementTagNameMap[T] {
-	return createElementNS(ns.svg, tagName, props);
-}
-
-// 根据标签名tagName创建带命名空间的元素
-function createElementNS<T extends keyof MathMLElementTagNameMap>(ns: string, tagName: T, props?: Partial<Record<any, any>>, children?: ChildrenType): MathMLElementTagNameMap[T];
-function createElementNS<T extends keyof SVGElementTagNameMap>(ns: string, tagName: T, props?: Partial<Record<any, any>>, children?: ChildrenType): SVGElementTagNameMap[T];
-function createElementNS<T extends keyof HTMLElementTagNameMap>(ns: string, tagName: T, props?: Partial<Record<any, any>>, children?: ChildrenType): HTMLElementTagNameMap[T];
-function createElementNS<T>(ns: string, tagName: T, props?: Partial<Record<any, any>>, children?: ChildrenType): Element | SVGElement | MathMLElement {
-	let oParent: Element | SVGElement | MathMLElement;
-	switch (ns) {
-		case "http://www.w3.org/1998/Math/MathML":
-			oParent = document.createElementNS(ns, tagName as keyof MathMLElementTagNameMap);
-			break;
-		case 'http://www.w3.org/2000/svg':
-			oParent = document.createElementNS(ns, tagName as keyof SVGElementTagNameMap);
-			break;
-		case 'http://www.w3.org/1999/xhtml':
-			oParent = document.createElement(tagName as keyof HTMLElementTagNameMap);
-			break;
-		default:
-			oParent = document.createElement(tagName as keyof HTMLElementTagNameMap);
-	}
-
-	if (props) {
-		Object.assign(oParent, props);
-	}
-
-	if (children) {
-		appendChildren(oParent, children);
-	}
-
-	return oParent;
-}
-
-// 清空所有子元素
-function removeAllElements(elem: HTMLElement) {
-	elem.innerHTML = '';
-}
-
-// 插入子元素，忽略溢出检测
-function appendChildren(parent: Element | Text, children: ChildrenType): void {
-	if (parent instanceof Element) {
-		if (Array.isArray(children)) {
-			parent.append(...children);
-		} else {
-			if (_.isString(children)) {
-				parent.append(children);
-			} else {
-				parent.appendChild(children);
-			}
-		}
-	}
-	if (parent instanceof Text) {
-		if (Array.isArray(children)) {
-			throw new Error('Text append children: children must be text node');
-		} else {
-			if (children instanceof Text) {
-				parent.appendData(children.wholeText);
-			}
-		}
-	}
-}
-
-// 判断文本区是否溢出
-function checkOverflow(el: HTMLElement): boolean {
-	// 提取原来的overflow属性值
-	const current_overflow: string = getComputedStyle(el).overflow;
-	//先让溢出效果为 hidden 这样才可以比较 clientHeight和scrollHeight
-	if (!current_overflow || current_overflow === 'visible') {
-		el.style.overflow = 'hidden';
-	}
-	const is_overflow: boolean = el.clientHeight < el.scrollHeight;
-
-	// 还原overflow属性值
-	el.style.overflow = current_overflow;
-
-	return is_overflow;
-}
-
-// 删除单个或者多个子元素
-function removeElements(target: Node[] | Node, parent: HTMLElement | Element | Text): void;
-function removeElements(target: Element[] | Element): void;
-function removeElements(target: ChildrenType, parent?: HTMLElement | Element | Text): void {
-	// parent is optional
-	if (parent === undefined) {
-		if (Array.isArray(target)) {
-			target.forEach(elem => {
-				if (elem instanceof Element) {
-					elem.remove();
-				} else {
-					throw new Error('removeElements: target must be Element!');
-				}
-			});
-		} else {
-			if (target instanceof Element) {
-				target.remove();
-			} else {
-				throw new Error('removeElements: target must be Element!');
-			}
-		}
-		return;
-	}
-	// parent is text node
-	if (parent instanceof Text) {
-		if (Array.isArray(target)) {
-			throw new Error('Text remove target: target must be text node!');
-		} else {
-			if (target instanceof Text) {
-				// at this point, deleteData is better than remove, because text was inserted by appendData
-				parent.deleteData(parent.length - target.length, target.length);
-			}
-		}
-	}
-	if (parent instanceof Element) {
-		if (Array.isArray(target)) {
-			target.forEach(elem => {
-				if (elem instanceof Element) {
-					elem.remove();
-				} else {
-					parent.removeChild(elem);
-				}
-			});
-		} else {
-			if (target instanceof Element) {
-				target.remove();
-			} else {
-				parent.removeChild(target);
-			}
-		}
-	}
-}
-
-// 创建style标签
-function createStyleElement(cssText: string) {
-	return createElement('style', { innerHTML: cssText });
-}
-
-// 插入注释
-function appendComment(elem: HTMLElement, comment: string) {
-	elem.appendChild(document.createComment(comment));
-}
-
-// 根据元素类型，回溯元素的父级元素、祖先元素
-function findParent<T extends OpenXmlElement>(elem: OpenXmlElement, type: DomType): T {
-	let parent = elem.parent;
-
-	while (parent != null && parent.type != type) {
-		parent = parent.parent;
-	}
-
-	return <T>parent;
-}
+// DOM utility functions moved to src/render/dom-utils.ts

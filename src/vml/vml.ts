@@ -1,7 +1,11 @@
-import { DocumentParser } from '../document-parser';
 import { convertLength, LengthUsage } from '../document/common';
-import { OpenXmlElementBase, DomType } from '../document/dom';
+import { OpenXmlElementBase, DomType, OpenXmlElement } from '../document/dom';
 import xml from '../parser/xml-parser';
+
+// Minimal interface required by parseVmlElement — avoids importing DocumentParser directly
+export interface VmlParserContext {
+	parseBodyElements(el: Element): OpenXmlElement[];
+}
 
 export class VmlElement extends OpenXmlElementBase {
 	type: DomType = DomType.VmlElement;
@@ -14,7 +18,7 @@ export class VmlElement extends OpenXmlElementBase {
 	}
 }
 
-export function parseVmlElement(elem: Element, parser: DocumentParser): VmlElement {
+export function parseVmlElement(elem: Element, parser: VmlParserContext): VmlElement {
 	var result = new VmlElement();
 
 	switch (elem.localName) {
