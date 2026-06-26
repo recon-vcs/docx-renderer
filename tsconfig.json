@@ -25,7 +25,12 @@
     "esModuleInterop": true,
     "importHelpers": false,
     "noEmitHelpers": false,
-    "pretty": true
+    "pretty": true,
+    "paths": {
+      "@docx/*": [
+        "./src/*"
+      ]
+    }
   },
   "include": [
     "src"

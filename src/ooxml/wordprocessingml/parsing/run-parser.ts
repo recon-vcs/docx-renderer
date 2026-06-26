@@ -1,0 +1,199 @@
+import { DomType, OpenXmlElement, WmlBreak, WmlCharacter, WmlLastRenderedPageBreak, WmlNoteReference, WmlSymbol, WmlText } from '@docx/ooxml/wordprocessingml/document/model/dom';
+import type { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
+import { WmlFieldChar, WmlFieldSimple } from '@docx/ooxml/wordprocessingml/document/model/fields';
+import { WmlCommentReference } from '@docx/ooxml/wordprocessingml/parts/comments/elements';
+import type { DocumentParserOptions } from '@docx/ooxml/wordprocessingml/parsing/document-parser';
+import xml from '@docx/xml/parsing/xml-parser';
+import { xmlUtil, values } from '@docx/xml/parsing/parse-utils';
+import { parseDefaultProperties, parseSpacing } from './properties-parser';
+
+export interface RunParserCallbacks {
+	parseDrawing(node: Element): OpenXmlElement;
+	parseVmlPicture(node: Element): OpenXmlElement;
+	checkAlternateContent(elem: Element): Element;
+}
+
+export function parseRun(
+	node: Element,
+	options: DocumentParserOptions,
+	callbacks: RunParserCallbacks,
+): WmlRun {
+	let wmlRun: WmlRun = {
+		type: DomType.Run,
+		children: [],
+	};
+
+	xmlUtil.foreach(node, (child) => {
+		// check for alternate content
+		child = callbacks.checkAlternateContent(child);
+
+		switch (child.localName) {
+			// property
+			case "rPr":
+				parseRunProperties(child, wmlRun, options);
+				break;
+
+			case "t":
+				wmlRun.children.push(parseText(child, DomType.Text));
+				break;
+
+			case "delText":
+				wmlRun.children.push(parseText(child, DomType.DeletedText));
+				break;
+
+			case "commentReference":
+				wmlRun.children.push(new WmlCommentReference(xml.attr(child, "id")));
+				break;
+
+			case "fldSimple":
+				wmlRun.children.push(<WmlFieldSimple>{
+					type: DomType.SimpleField,
+					instruction: xml.attr(child, "instr"),
+					lock: xml.boolAttr(child, "lock", false),
+					dirty: xml.boolAttr(child, "dirty", false)
+				});
+				break;
+
+			case "instrText":
+				wmlRun.fieldRun = true;
+				wmlRun.children.push(parseText(child, DomType.Instruction));
+				break;
+
+			case "fldChar":
+				wmlRun.fieldRun = true;
+				wmlRun.children.push(<WmlFieldChar>{
+					type: DomType.ComplexField,
+					charType: xml.attr(child, "fldCharType"),
+					lock: xml.boolAttr(child, "lock", false),
+					dirty: xml.boolAttr(child, "dirty", false)
+				});
+				break;
+
+			case "noBreakHyphen":
+				wmlRun.children.push({ type: DomType.NoBreakHyphen });
+				break;
+
+			case "br":
+				wmlRun.children.push(<WmlBreak>{
+					type: DomType.Break,
+					break: xml.attr(child, "type") || "textWrapping",
+					props: {
+						clear: xml.attr(child, "clear")
+					}
+				});
+				break;
+
+			case "lastRenderedPageBreak":
+				wmlRun.children.push(<WmlLastRenderedPageBreak>{
+					type: DomType.LastRenderedPageBreak,
+				});
+				break;
+
+			// SymbolChar
+			case "sym":
+				wmlRun.children.push(<WmlSymbol>{
+					type: DomType.Symbol,
+					font: xml.attr(child, "font"),
+					char: xml.attr(child, "char")
+				});
+				break;
+
+			// TODO PositionalTab
+			case "ptab":
+				break;
+
+			case "tab":
+				wmlRun.children.push({ type: DomType.Tab });
+				break;
+
+			case "footnoteReference":
+				wmlRun.children.push(<WmlNoteReference>{
+					type: DomType.FootnoteReference,
+					id: xml.attr(child, "id")
+				});
+				break;
+
+			case "endnoteReference":
+				wmlRun.children.push(<WmlNoteReference>{
+					type: DomType.EndnoteReference,
+					id: xml.attr(child, "id")
+				});
+				break;
+
+			case "drawing":
+				wmlRun.children.push(callbacks.parseDrawing(child));
+				break;
+
+			case "pict":
+				wmlRun.children.push(callbacks.parseVmlPicture(child));
+				break;
+
+			default:
+				if (options.debug) {
+					console.warn(`DOCX:%c Unknown Run Element：${child.localName}`, 'color:#f75607');
+				}
+		}
+	});
+
+	return wmlRun;
+}
+
+export function parseText(elem: Element, type: DomType): WmlText {
+	let wmlText = { type, text: '' } as WmlText;
+	let textContent = elem.textContent;
+	// preserve whitespace
+	let is_preserve_space = xml.attr(elem, "xml:space") === "preserve";
+	if (is_preserve_space) {
+		//   = non-breaking space
+		textContent = textContent.split(/\s/).join(" ");
+	}
+	wmlText.text = textContent;
+	if (textContent.length > 0) {
+		wmlText.children = parseCharacter(textContent);
+	}
+	return wmlText;
+}
+
+export function parseCharacter(text: string): OpenXmlElement[] {
+	let characters: string[];
+	// check whether string is primarily Chinese characters
+	const isChinese = text.match(/[一-龥]+/g);
+	if (isChinese) {
+		characters = text.split('');
+	} else {
+		characters = text.match(/\S+|\s+/g);
+	}
+	return characters.map(character => (
+		{ type: DomType.Character, char: character } as WmlCharacter
+	));
+}
+
+export function parseRunProperties(
+	elem: Element,
+	run: WmlRun,
+	options: DocumentParserOptions,
+): void {
+	parseDefaultProperties(elem, options, run.cssStyle = {}, null, c => {
+		switch (c.localName) {
+			// Referenced Character Style
+			case "rStyle":
+				run.styleName = xml.attr(c, "val");
+				break;
+
+			// Subscript/Superscript Text
+			case "vertAlign":
+				run.verticalAlign = values.valueOfVertAlign(c, true);
+				break;
+
+			// Character Spacing Adjustment
+			case "spacing":
+				parseSpacing(c, run, options);
+				break;
+
+			default:
+				return false;
+		}
+
+		return true;
+	});
+}

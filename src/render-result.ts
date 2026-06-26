@@ -1,4 +1,4 @@
-import { WordDocument } from './word-document';
+import { WordDocument } from '@docx/word-document';
 
 export interface PageHandle {
 	index: number;

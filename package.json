@@ -53,6 +53,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
+    "@rollup/plugin-alias": "^6.0.0",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/lodash-es": "^4.17.12",
     "jsdom": "^26.1.0",
