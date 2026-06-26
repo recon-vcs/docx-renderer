@@ -3,6 +3,7 @@ import { DomType, OpenXmlElement } from '../model/element';
 import { createElement, createElementNS, appendChildren } from './dom-utils';
 
 const mathNs = 'http://www.w3.org/1998/Math/MathML';
+const mathOperators = new Set(['=', '+', '-', '−', '*', '/', '×', '÷', '±', '<', '>', '≤', '≥']);
 
 // Callbacks to the main renderer for math rendering
 export interface MathRendererCallbacks {
@@ -142,13 +143,53 @@ export async function renderMmlBar(elem: OpenXmlElement, cbs: MathRendererCallba
 	return oMrow;
 }
 
-// Render a math run (<ms> with class and style)
-export async function renderMmlRun(elem: OpenXmlElement, cbs: MathRendererCallbacks): Promise<HTMLElement> {
-	const oMs = createElementNS(mathNs, 'ms') as HTMLElement;
-	cbs.renderClass(elem, oMs);
-	cbs.renderStyleValues(elem.cssStyle, oMs);
-	await cbs.renderChildren(elem, oMs);
-	return oMs;
+function mathText(elem: OpenXmlElement): string {
+	if (elem.type === DomType.Text || elem.type === DomType.DeletedText) {
+		return (elem as OpenXmlElement & { text?: string }).text ?? '';
+	}
+	if (elem.type === DomType.Character) {
+		return (elem as OpenXmlElement & { char?: string }).char ?? '';
+	}
+	return elem.children?.map(child => mathText(child)).join('') ?? '';
+}
+
+function appendMathToken(parent: MathMLElement, text: string, tagName: 'mi' | 'mn' | 'mo' | 'mtext', normal = false): void {
+	const token = createElementNS(mathNs, tagName, null, [text]);
+	if (normal) {
+		token.setAttribute('mathvariant', 'normal');
+	}
+	appendChildren(parent, token);
+}
+
+function appendMathText(parent: MathMLElement, text: string, normalIdentifier = false): void {
+	if (!text) {
+		return;
+	}
+
+	if (normalIdentifier) {
+		appendMathToken(parent, text, 'mi', true);
+		return;
+	}
+
+	const parts = text.match(/\d+(?:\.\d+)?|[A-Za-zΑ-ω]|[^\s]/g) ?? [];
+	for (const part of parts) {
+		if (/^\d/.test(part)) {
+			appendMathToken(parent, part, 'mn');
+		} else if (mathOperators.has(part)) {
+			appendMathToken(parent, part, 'mo');
+		} else {
+			appendMathToken(parent, part, 'mi');
+		}
+	}
+}
+
+// Render a math run as MathML token elements.
+export async function renderMmlRun(elem: OpenXmlElement, cbs: MathRendererCallbacks): Promise<MathMLElement> {
+	const oMrow = createElementNS(mathNs, 'mrow') as MathMLElement;
+	cbs.renderClass(elem, oMrow);
+	cbs.renderStyleValues(elem.cssStyle, oMrow as HTMLElement);
+	appendMathText(oMrow, mathText(elem), elem.parent?.type === DomType.MmlFunctionName);
+	return oMrow;
 }
 
 // Render an equation array as an <mtable> where each child is a row

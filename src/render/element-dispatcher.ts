@@ -423,7 +423,7 @@ export async function dispatchElement(
 			break;
 
 		case DomType.MmlFunctionName:
-			oNode = await ctx.renderContainerNS(elem, ns.mathML, 'ms');
+			oNode = await ctx.renderContainerNS(elem, ns.mathML, 'mrow');
 			// 作为子元素插入,忽略溢出检测
 			if (parent) {
 				appendChildren(parent, oNode);

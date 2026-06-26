@@ -69,6 +69,7 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 
 	console.log('RESULT:', JSON.stringify(result, null, 2));
 	await page.screenshot({ path: 'test-results/zz-sample-full.png', fullPage: true });
+	await page.locator('.docx-math-paragraph').nth(1).screenshot({ path: 'test-results/zz-sample-math.png' });
 
 	expect(pageErrors).toEqual([]);
 	expect(consoleErrors).toEqual([]);
@@ -79,6 +80,7 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 	expect(result.mathParagraphs.every(item => item.tagName === 'DIV')).toBe(true);
 	expect(result.mathParagraphs.every(item => item.breakInside === 'avoid' || item.pageBreakInside === 'avoid')).toBe(true);
 	expect(result.mathParagraphs.every(item => item.columnSpan === 'none')).toBe(true);
+	expect(result.mathParagraphs.every(item => item.height < 60)).toBe(true);
 	expect(result.mathWhiteSpace.every(value => value === 'nowrap')).toBe(true);
 	expect(result.images.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0)).toBe(true);
 	expect(result.textboxes.every(textbox => textbox.boxSizing === 'border-box' && textbox.overflow === 'hidden' && textbox.alignItems === 'flex-start')).toBe(true);

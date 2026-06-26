@@ -17,7 +17,7 @@ export function renderDefaultStyle(className: string): HTMLElement {
 			.${c} span { white-space: pre-wrap; overflow-wrap: break-word; }
 			.${c} math { vertical-align: middle; }
 			.${c} .${c}-math-paragraph { break-inside: avoid; page-break-inside: avoid; overflow-x: auto; overflow-y: hidden; overflow-wrap: normal; white-space: normal; }
-			.${c} .${c}-math-paragraph math { display: inline-block; max-width: none; min-width: max-content; overflow: visible; white-space: nowrap; }
+			.${c} .${c}-math-paragraph math { max-width: none; min-width: max-content; overflow: visible; white-space: nowrap; }
 			.${c} .${c}-math-paragraph math * { overflow-wrap: normal; white-space: nowrap; }
 			.${c} a { color: inherit; text-decoration: inherit; }
 			.${c} img, .${c} svg { vertical-align: baseline; break-inside: avoid; page-break-inside: avoid; }
