@@ -1,4 +1,4 @@
-import { renderSync } from '../src/docx-preview';
+import { render } from '../src/docx-preview';
 
 const fixtureUrls = import.meta.glob<string>('../tests/fixtures/*.docx', { query: '?url', import: 'default', eager: true });
 
@@ -16,12 +16,12 @@ for (const path of Object.keys(fixtureUrls).sort()) {
 	select.appendChild(option);
 }
 
-async function render(source: Blob | ArrayBuffer) {
+async function renderCurrentDocument(source: Blob | ArrayBuffer) {
 	status.textContent = 'rendering...';
 	styleContainer.innerHTML = '';
 	documentContainer.innerHTML = '';
 	try {
-		await renderSync(source, documentContainer, styleContainer, { inWrapper: true });
+		await render(source, documentContainer, styleContainer, { inWrapper: true });
 		status.textContent = 'done';
 	} catch (err) {
 		status.textContent = `error: ${(err as Error).message}`;
@@ -32,13 +32,13 @@ async function render(source: Blob | ArrayBuffer) {
 select.addEventListener('change', async () => {
 	if (!select.value) return;
 	const res = await fetch(select.value);
-	await render(await res.arrayBuffer());
+	await renderCurrentDocument(await res.arrayBuffer());
 });
 
 fileInput.addEventListener('change', async () => {
 	const file = fileInput.files?.[0];
 	if (!file) return;
-	await render(file);
+	await renderCurrentDocument(file);
 });
 
 if (select.options.length > 0) {

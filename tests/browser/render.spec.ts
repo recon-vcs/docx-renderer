@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
  * harness page. Only the members used by these tests are declared.
  */
 interface DocxGlobal {
-	renderSync(data: Blob, bodyContainer: HTMLElement): Promise<{ dispose(): void }>;
+	render(data: Blob, bodyContainer: HTMLElement): Promise<{ dispose(): void }>;
 }
 
 type HarnessWindow = Window & typeof globalThis & { docx: DocxGlobal };
@@ -43,7 +43,7 @@ async function renderInPage(page: Page, fixture: string): Promise<string> {
 				throw new Error('harness is missing #document-container');
 				}
 				const docx = (window as HarnessWindow).docx;
-				const result = await docx.renderSync(blob, body);
+				const result = await docx.render(blob, body);
 				const html = body.innerHTML;
 				result.dispose();
 				return html;
@@ -52,7 +52,7 @@ async function renderInPage(page: Page, fixture: string): Promise<string> {
 	);
 }
 
-test.describe('renderSync smoke', () => {
+test.describe('render smoke', () => {
 	for (const name of SYNC_SMOKE_CASES) {
 		test(`renders ${name} without errors`, async ({ page }) => {
 			const pageErrors: Error[] = [];

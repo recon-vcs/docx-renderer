@@ -1,7 +1,7 @@
 {
   "name": "docx-renderer",
   "version": "0.1.2",
-  "description": "Synchronous docx to HTML rendering library for the browser. Fork of docx-preview-sync, evolved for the Recon project.",
+  "description": "Browser-side docx to HTML rendering library. Fork of docx-preview-sync, evolved for the Recon project.",
   "license": "Apache-2.0",
   "keywords": [
     "word",

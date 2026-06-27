@@ -15,7 +15,7 @@
 
 <body class="vh-100 d-flex flex-column">
 <div class="hstack bg-black">
-	<div class="mx-auto p-3 text-white">docx-renderer &mdash; docx.renderSync demo</div>
+	<div class="mx-auto p-3 text-white">docx-renderer &mdash; docx.render demo</div>
 </div>
 
 <div class="hstack p-2 gap-2 bg-light">
@@ -63,7 +63,7 @@
 
 			if (!currentDocument) return;
 
-			docx.renderSync(currentDocument, document_container, style_container, docxOptions)
+			docx.render(currentDocument, document_container, style_container, docxOptions)
 				.then((result) => {
 					currentRender?.dispose();
 					currentRender = result;

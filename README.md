@@ -59,12 +59,12 @@ Runtime dependencies (`jszip`, `konva`, `lodash-es`) are installed automatically
 ## Quick start
 
 ```ts
-import { renderSync } from "docx-renderer";
+import { render } from "docx-renderer";
 
 const response = await fetch("/sample.docx");
 const blob = await response.blob();
 
-const result = await renderSync(
+const result = await render(
   blob,
   document.getElementById("document-container"),
   document.getElementById("style-container"),
@@ -88,10 +88,10 @@ parseAsync(
 
 Parses a DOCX file into a `WordDocument` model without rendering. Use this when you need to inspect, cache, or transform the document model before rendering.
 
-### `renderSync`
+### `render`
 
 ```ts
-renderSync(
+render(
   data: Blob | ArrayBuffer | Uint8Array,
   bodyContainer: HTMLElement,
   styleContainer?: HTMLElement,
@@ -225,7 +225,7 @@ Load dependencies before the UMD bundle. The library is exposed as `window.docx`
 <script src="./docx-renderer.umd.js"></script>
 
 <script>
-  const result = await docx.renderSync(blob, container, undefined, { breakPages: true });
+  const result = await docx.render(blob, container, undefined, { breakPages: true });
 </script>
 ```
 

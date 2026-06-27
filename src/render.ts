@@ -25,7 +25,7 @@ export async function renderDocument(
 }
 
 /** Parses and renders with the pagination-aware renderer. */
-export async function renderSync(
+export async function render(
 	data: DocumentSource,
 	bodyContainer: HTMLElement,
 	styleContainer: HTMLElement | null = null,

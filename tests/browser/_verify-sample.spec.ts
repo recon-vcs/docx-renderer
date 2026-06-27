@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 interface DocxGlobal {
-	renderSync(data: Blob, bodyContainer: HTMLElement, styleContainer: HTMLElement, options?: Record<string, unknown>): Promise<{ dispose(): void }>;
+	render(data: Blob, bodyContainer: HTMLElement, styleContainer: HTMLElement, options?: Record<string, unknown>): Promise<{ dispose(): void }>;
 }
 
 type HarnessWindow = Window & typeof globalThis & { docx: DocxGlobal };
@@ -21,7 +21,7 @@ test('verify zz-sample-analyze rendering after fixes', async ({ page }) => {
 			const body = document.querySelector<HTMLElement>('#document-container')!;
 			const styleContainer = document.querySelector<HTMLElement>('#style-container')!;
 			const docx = (window as unknown as HarnessWindow).docx;
-			const renderResult = await docx.renderSync(blob, body, styleContainer, { breakPages: true });
+			const renderResult = await docx.render(blob, body, styleContainer, { breakPages: true });
 			const sections = Array.from(document.querySelectorAll('section.docx-wrapper, section[class*="docx"]'));
 		const mathParagraphs = Array.from(document.querySelectorAll<HTMLElement>('.docx-math-paragraph'));
 		const mathElements = Array.from(document.querySelectorAll<HTMLElement>('math'));
