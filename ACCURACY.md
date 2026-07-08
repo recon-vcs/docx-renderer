@@ -25,45 +25,45 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 ### Page 1 — 99.4%
 
 <p align="center">
-  <img src="../accuracy/docx-renderer/page-1-reference.png" width="30%" alt="Word reference, page 1">
-  <img src="../accuracy/docx-renderer/page-1-rendered.png" width="30%" alt="docx-renderer (this project) output, page 1">
-  <img src="../accuracy/docx-renderer/page-1-diff.png" width="30%" alt="pixel diff, page 1">
+  <img src="./accuracy/docx-renderer/page-1-reference.png" width="30%" alt="Word reference, page 1">
+  <img src="./accuracy/docx-renderer/page-1-rendered.png" width="30%" alt="docx-renderer (this project) output, page 1">
+  <img src="./accuracy/docx-renderer/page-1-diff.png" width="30%" alt="pixel diff, page 1">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 2 — 92.5%
 
 <p align="center">
-  <img src="../accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Word reference, page 2">
-  <img src="../accuracy/docx-renderer/page-2-rendered.png" width="30%" alt="docx-renderer (this project) output, page 2">
-  <img src="../accuracy/docx-renderer/page-2-diff.png" width="30%" alt="pixel diff, page 2">
+  <img src="./accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Word reference, page 2">
+  <img src="./accuracy/docx-renderer/page-2-rendered.png" width="30%" alt="docx-renderer (this project) output, page 2">
+  <img src="./accuracy/docx-renderer/page-2-diff.png" width="30%" alt="pixel diff, page 2">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 3 — 99.8%
 
 <p align="center">
-  <img src="../accuracy/docx-renderer/page-3-reference.png" width="30%" alt="Word reference, page 3">
-  <img src="../accuracy/docx-renderer/page-3-rendered.png" width="30%" alt="docx-renderer (this project) output, page 3">
-  <img src="../accuracy/docx-renderer/page-3-diff.png" width="30%" alt="pixel diff, page 3">
+  <img src="./accuracy/docx-renderer/page-3-reference.png" width="30%" alt="Word reference, page 3">
+  <img src="./accuracy/docx-renderer/page-3-rendered.png" width="30%" alt="docx-renderer (this project) output, page 3">
+  <img src="./accuracy/docx-renderer/page-3-diff.png" width="30%" alt="pixel diff, page 3">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 4 — 98.9%
 
 <p align="center">
-  <img src="../accuracy/docx-renderer/page-4-reference.png" width="30%" alt="Word reference, page 4">
-  <img src="../accuracy/docx-renderer/page-4-rendered.png" width="30%" alt="docx-renderer (this project) output, page 4">
-  <img src="../accuracy/docx-renderer/page-4-diff.png" width="30%" alt="pixel diff, page 4">
+  <img src="./accuracy/docx-renderer/page-4-reference.png" width="30%" alt="Word reference, page 4">
+  <img src="./accuracy/docx-renderer/page-4-rendered.png" width="30%" alt="docx-renderer (this project) output, page 4">
+  <img src="./accuracy/docx-renderer/page-4-diff.png" width="30%" alt="pixel diff, page 4">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 5 — 97.0%
 
 <p align="center">
-  <img src="../accuracy/docx-renderer/page-5-reference.png" width="30%" alt="Word reference, page 5">
-  <img src="../accuracy/docx-renderer/page-5-rendered.png" width="30%" alt="docx-renderer (this project) output, page 5">
-  <img src="../accuracy/docx-renderer/page-5-diff.png" width="30%" alt="pixel diff, page 5">
+  <img src="./accuracy/docx-renderer/page-5-reference.png" width="30%" alt="Word reference, page 5">
+  <img src="./accuracy/docx-renderer/page-5-rendered.png" width="30%" alt="docx-renderer (this project) output, page 5">
+  <img src="./accuracy/docx-renderer/page-5-diff.png" width="30%" alt="pixel diff, page 5">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
@@ -80,45 +80,45 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 ### Page 1 — 99.6%
 
 <p align="center">
-  <img src="../accuracy/docx-preview-sync/page-1-reference.png" width="30%" alt="Word reference, page 1">
-  <img src="../accuracy/docx-preview-sync/page-1-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 1">
-  <img src="../accuracy/docx-preview-sync/page-1-diff.png" width="30%" alt="pixel diff, page 1">
+  <img src="./accuracy/docx-preview-sync/page-1-reference.png" width="30%" alt="Word reference, page 1">
+  <img src="./accuracy/docx-preview-sync/page-1-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 1">
+  <img src="./accuracy/docx-preview-sync/page-1-diff.png" width="30%" alt="pixel diff, page 1">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 2 — 75.8%
 
 <p align="center">
-  <img src="../accuracy/docx-preview-sync/page-2-reference.png" width="30%" alt="Word reference, page 2">
-  <img src="../accuracy/docx-preview-sync/page-2-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 2">
-  <img src="../accuracy/docx-preview-sync/page-2-diff.png" width="30%" alt="pixel diff, page 2">
+  <img src="./accuracy/docx-preview-sync/page-2-reference.png" width="30%" alt="Word reference, page 2">
+  <img src="./accuracy/docx-preview-sync/page-2-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 2">
+  <img src="./accuracy/docx-preview-sync/page-2-diff.png" width="30%" alt="pixel diff, page 2">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 3 — 99.8%
 
 <p align="center">
-  <img src="../accuracy/docx-preview-sync/page-3-reference.png" width="30%" alt="Word reference, page 3">
-  <img src="../accuracy/docx-preview-sync/page-3-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 3">
-  <img src="../accuracy/docx-preview-sync/page-3-diff.png" width="30%" alt="pixel diff, page 3">
+  <img src="./accuracy/docx-preview-sync/page-3-reference.png" width="30%" alt="Word reference, page 3">
+  <img src="./accuracy/docx-preview-sync/page-3-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 3">
+  <img src="./accuracy/docx-preview-sync/page-3-diff.png" width="30%" alt="pixel diff, page 3">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 4 — 98.9%
 
 <p align="center">
-  <img src="../accuracy/docx-preview-sync/page-4-reference.png" width="30%" alt="Word reference, page 4">
-  <img src="../accuracy/docx-preview-sync/page-4-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 4">
-  <img src="../accuracy/docx-preview-sync/page-4-diff.png" width="30%" alt="pixel diff, page 4">
+  <img src="./accuracy/docx-preview-sync/page-4-reference.png" width="30%" alt="Word reference, page 4">
+  <img src="./accuracy/docx-preview-sync/page-4-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 4">
+  <img src="./accuracy/docx-preview-sync/page-4-diff.png" width="30%" alt="pixel diff, page 4">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 5 — 97.0%
 
 <p align="center">
-  <img src="../accuracy/docx-preview-sync/page-5-reference.png" width="30%" alt="Word reference, page 5">
-  <img src="../accuracy/docx-preview-sync/page-5-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 5">
-  <img src="../accuracy/docx-preview-sync/page-5-diff.png" width="30%" alt="pixel diff, page 5">
+  <img src="./accuracy/docx-preview-sync/page-5-reference.png" width="30%" alt="Word reference, page 5">
+  <img src="./accuracy/docx-preview-sync/page-5-rendered.png" width="30%" alt="docx-preview-sync (fork parent) output, page 5">
+  <img src="./accuracy/docx-preview-sync/page-5-diff.png" width="30%" alt="pixel diff, page 5">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
@@ -135,26 +135,26 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 ### Page 1 — 92.3%
 
 <p align="center">
-  <img src="../accuracy/docx-preview/page-1-reference.png" width="30%" alt="Word reference, page 1">
-  <img src="../accuracy/docx-preview/page-1-rendered.png" width="30%" alt="docx-preview (docxjs, original) output, page 1">
-  <img src="../accuracy/docx-preview/page-1-diff.png" width="30%" alt="pixel diff, page 1">
+  <img src="./accuracy/docx-preview/page-1-reference.png" width="30%" alt="Word reference, page 1">
+  <img src="./accuracy/docx-preview/page-1-rendered.png" width="30%" alt="docx-preview (docxjs, original) output, page 1">
+  <img src="./accuracy/docx-preview/page-1-diff.png" width="30%" alt="pixel diff, page 1">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 2 — 78.5%
 
 <p align="center">
-  <img src="../accuracy/docx-preview/page-2-reference.png" width="30%" alt="Word reference, page 2">
-  <img src="../accuracy/docx-preview/page-2-rendered.png" width="30%" alt="docx-preview (docxjs, original) output, page 2">
-  <img src="../accuracy/docx-preview/page-2-diff.png" width="30%" alt="pixel diff, page 2">
+  <img src="./accuracy/docx-preview/page-2-reference.png" width="30%" alt="Word reference, page 2">
+  <img src="./accuracy/docx-preview/page-2-rendered.png" width="30%" alt="docx-preview (docxjs, original) output, page 2">
+  <img src="./accuracy/docx-preview/page-2-diff.png" width="30%" alt="pixel diff, page 2">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
 ### Page 3 — 95.1%
 
 <p align="center">
-  <img src="../accuracy/docx-preview/page-3-reference.png" width="30%" alt="Word reference, page 3">
-  <img src="../accuracy/docx-preview/page-3-rendered.png" width="30%" alt="docx-preview (docxjs, original) output, page 3">
-  <img src="../accuracy/docx-preview/page-3-diff.png" width="30%" alt="pixel diff, page 3">
+  <img src="./accuracy/docx-preview/page-3-reference.png" width="30%" alt="Word reference, page 3">
+  <img src="./accuracy/docx-preview/page-3-rendered.png" width="30%" alt="docx-preview (docxjs, original) output, page 3">
+  <img src="./accuracy/docx-preview/page-3-diff.png" width="30%" alt="pixel diff, page 3">
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>

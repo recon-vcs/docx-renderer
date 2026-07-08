@@ -4,7 +4,7 @@
 // Word-exported ground truth in real/a-page-*.png, then regenerates:
 //   - accuracy/<library>/page-N-{reference,rendered,diff}.png
 //   - accuracy/comparison-{light,dark}.svg
-//   - docs/ACCURACY.md   (full per-library, per-page report)
+//   - ACCURACY.md        (full per-library, per-page report)
 //   - README.md           (content between the ACCURACY marker comments only)
 //
 // Requires a Chrome binary for agent-browser (`pnpm exec agent-browser install`)
@@ -144,9 +144,9 @@ function writeAccuracyReport(runs) {
 				`### Page ${r.page} — ${pct(r.score)}`,
 				'',
 				`<p align="center">`,
-				`  <img src="../accuracy/${run.label}/page-${r.page}-reference.png" width="30%" alt="Word reference, page ${r.page}">`,
-				`  <img src="../accuracy/${run.label}/page-${r.page}-rendered.png" width="30%" alt="${run.title} output, page ${r.page}">`,
-				`  <img src="../accuracy/${run.label}/page-${r.page}-diff.png" width="30%" alt="pixel diff, page ${r.page}">`,
+				`  <img src="./accuracy/${run.label}/page-${r.page}-reference.png" width="30%" alt="Word reference, page ${r.page}">`,
+				`  <img src="./accuracy/${run.label}/page-${r.page}-rendered.png" width="30%" alt="${run.title} output, page ${r.page}">`,
+				`  <img src="./accuracy/${run.label}/page-${r.page}-diff.png" width="30%" alt="pixel diff, page ${r.page}">`,
 				'</p>',
 				'<p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>',
 				'',
@@ -154,8 +154,7 @@ function writeAccuracyReport(runs) {
 		}
 	}
 
-	mkdirSync(`${ROOT}/docs`, { recursive: true });
-	writeFileSync(`${ROOT}/docs/ACCURACY.md`, lines.join('\n'));
+	writeFileSync(`${ROOT}/ACCURACY.md`, lines.join('\n'));
 }
 
 function updateReadme(runs) {
@@ -179,7 +178,7 @@ function updateReadme(runs) {
 		'</p>',
 		'<p align="center"><sub>Word reference · docx-renderer output · pixel diff</sub></p>',
 		'',
-		'Full per-page, per-library breakdown (all 5 pages × all 3 libraries, with reference/rendered/diff images): [`docs/ACCURACY.md`](./docs/ACCURACY.md).',
+		'Full per-page, per-library breakdown (all 5 pages × all 3 libraries, with reference/rendered/diff images): [`ACCURACY.md`](./ACCURACY.md).',
 		'',
 		'Methodology: `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch), scored against a Word PDF export (not a Word editing-view screenshot, so the diff reflects rendered output, not non-printing marks). Reproduce with `pnpm measure:all`.',
 	].join('\n');
