@@ -8,6 +8,7 @@ docs/js/
 test-results/
 playwright-report/
 coverage/
+.accuracy-scratch/
 
 # editor / OS cruft
 .vs

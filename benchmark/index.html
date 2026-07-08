@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>docx-renderer benchmark harness</title>
+	<style>
+		body { margin: 0; font-family: system-ui, sans-serif; }
+		#toolbar { position: sticky; top: 0; z-index: 10; background: #222; color: #eee; padding: 8px 12px; display: flex; gap: 12px; align-items: center; }
+		#document-container { padding: 24px; background: #ccc; min-height: 100vh; }
+	</style>
+</head>
+<body>
+<div id="toolbar">
+	<label>Renderer:
+		<select id="renderer-select">
+			<option value="docx-renderer">docx-renderer (this project)</option>
+			<option value="docx-preview-sync">docx-preview-sync (fork parent)</option>
+			<option value="docx-preview">docx-preview (docxjs, original)</option>
+		</select>
+	</label>
+	<span id="status"></span>
+</div>
+<div id="style-container"></div>
+<div id="document-container"></div>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

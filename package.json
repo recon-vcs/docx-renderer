@@ -49,7 +49,9 @@
     "test:watch": "vitest",
     "test:browser": "playwright test",
     "build:playground": "vite build --base=/docx-renderer/",
-    "measure:accuracy": "node scripts/measure-accuracy.mjs"
+    "measure:accuracy": "node scripts/measure-accuracy.mjs",
+    "measure:all": "node scripts/measure-all.mjs",
+    "measure:chart": "node scripts/generate-comparison-chart.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -63,6 +65,9 @@
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^26.0.1",
     "@types/pngjs": "^6.0.5",
+    "agent-browser": "^0.31.1",
+    "docx-preview": "^0.3.7",
+    "docx-preview-sync": "^0.4.20",
     "jsdom": "^26.1.0",
     "lodash": "^4.18.1",
     "pixelmatch": "^7.2.0",

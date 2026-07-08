@@ -1,0 +1,28 @@
+<svg viewBox="0 0 680 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pixel-accuracy comparison against Word's PDF export of a.docx (axis truncated at 40%): docx-renderer (this project) 97.5%, docx-preview-sync (fork parent) 94.2%, docx-preview (docxjs, original) 53.2%">
+	<rect x="0" y="0" width="680" height="216" fill="transparent"/>
+	<line x1="260" y1="14" x2="260" y2="174" stroke="#2c2c2a" stroke-width="1"/>
+	<line x1="380" y1="14" x2="380" y2="174" stroke="#2c2c2a" stroke-width="1"/>
+	<line x1="500" y1="14" x2="500" y2="174" stroke="#2c2c2a" stroke-width="1"/>
+	<line x1="620" y1="14" x2="620" y2="174" stroke="#2c2c2a" stroke-width="1"/>
+	<line x1="260" y1="14" x2="260" y2="174" stroke="#383835" stroke-width="1.5"/>
+	
+	<text x="8" y="39" font-size="13" font-weight="500" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-renderer (this project)</text>
+	<path d="M260,22 L601.0558166422669,22 A4,4 0 0 1 605.0558166422669,26 L605.0558166422669,44 A4,4 0 0 1 601.0558166422669,48 L260,48 Z" fill="#3987e5"/>
+	<text x="615.0558166422669" y="39" font-size="13" font-weight="600" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">97.5%</text>
+
+	<text x="8" y="93" font-size="13" font-weight="500" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-preview-sync (fork parent)</text>
+	<path d="M260,76 L581.3748068656491,76 A4,4 0 0 1 585.3748068656491,80 L585.3748068656491,98 A4,4 0 0 1 581.3748068656491,102 L260,102 Z" fill="#199e70"/>
+	<text x="595.3748068656491" y="93" font-size="13" font-weight="600" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">94.2%</text>
+
+	<text x="8" y="147" font-size="13" font-weight="500" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-preview (docxjs, original)</text>
+	<path d="M260,130 L335.143756266388,130 A4,4 0 0 1 339.143756266388,134 L339.143756266388,152 A4,4 0 0 1 335.143756266388,156 L260,156 Z" fill="#c98500"/>
+	<text x="349.143756266388" y="147" font-size="13" font-weight="600" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">53.2%</text>
+	<text x="260" y="190" font-size="11" fill="#c3c2b7" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">40%</text>
+	<text x="380" y="190" font-size="11" fill="#c3c2b7" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">60%</text>
+	<text x="500" y="190" font-size="11" fill="#c3c2b7" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">80%</text>
+	<text x="620" y="190" font-size="11" fill="#c3c2b7" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">100%</text>
+	
+	<line x1="256" y1="179" x2="262" y2="169" stroke="#383835" stroke-width="6"/>
+	<line x1="255" y1="177" x2="261" y2="167" stroke="#c3c2b7" stroke-width="1.5"/>
+	<line x1="259" y1="177" x2="265" y2="167" stroke="#c3c2b7" stroke-width="1.5"/>
+</svg>

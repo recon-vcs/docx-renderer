@@ -10,9 +10,35 @@ The renderer already produces high-quality output across a wide range of real-wo
 
 `docx-renderer` is the document preview engine used by [Recon](https://github.com/recon-vcs) and is published as a standalone npm library.
 
-> **Fork notice:** `docx-renderer` is a fork of [docx-preview-sync](https://github.com/millet0328/docx-preview-sync), evolved independently for the Recon project. It is no longer kept in sync with upstream. See [Origin and attribution](#origin-and-attribution).
+> **Fork notice:** `docx-renderer` is a fork of [docx-preview-sync](https://github.com/millet0328/docx-preview-sync), which is itself derived from [docx-preview / docxjs](https://github.com/VolodymyrBaydalka/docxjs). No longer kept in sync with either upstream. See [Origin and attribution](#origin-and-attribution).
 
 **[Live Playground →](https://recon-vcs.github.io/docx-renderer/)**
+
+## Measured accuracy
+
+`tests/fixtures/a.docx` (headings, TOC, code blocks, images, tables, math, text boxes, footnotes, section breaks, a mixed-page-size section) rendered by all three libraries in this fork chain, scored page-by-page against a Word (Microsoft 365) PDF export of the same file:
+
+<!-- ACCURACY:START -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./accuracy/comparison-dark.svg">
+    <img src="./accuracy/comparison-light.svg" alt="Accuracy comparison: docx-renderer, docx-preview-sync, and docx-preview against a Word PDF export of a.docx">
+  </picture>
+</p>
+
+Representative page (page 2 of 5 — code block, image, table, text box) rendered by `docx-renderer`, scoring 92.5%:
+
+<p align="center">
+  <img src="./accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Microsoft Word reference, page 2">
+  <img src="./accuracy/docx-renderer/page-2-rendered.png" width="30%" alt="docx-renderer output, page 2">
+  <img src="./accuracy/docx-renderer/page-2-diff.png" width="30%" alt="pixel diff, page 2">
+</p>
+<p align="center"><sub>Word reference · docx-renderer output · pixel diff</sub></p>
+
+Full per-page, per-library breakdown (all 5 pages × all 3 libraries, with reference/rendered/diff images): [`docs/ACCURACY.md`](./docs/ACCURACY.md).
+
+Methodology: `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch), scored against a Word PDF export (not a Word editing-view screenshot, so the diff reflects rendered output, not non-printing marks). Reproduce with `pnpm measure:all`.
+<!-- ACCURACY:END -->
 
 ---
 
@@ -256,34 +282,6 @@ Areas of active development:
 - Word compatibility settings
 
 Rendering changes should be validated against real DOCX fixtures and visual regression tests. The test suite in `tests/` includes over 100 fixture documents covering the above areas.
-
-## Measured accuracy
-
-`tests/fixtures/a.docx` — the most layout-dense fixture in the suite (headings, TOC, code blocks, images, tables, math, text boxes, footnotes, section breaks, a mixed-page-size section) — is rendered and compared pixel-by-pixel, page by page, against [`real/a-page-*.png`](./real), rasterized from a PDF export of the same file produced by Microsoft Word (Microsoft 365).
-
-| Page | Content | Score |
-|---|---|---|
-| 1 | Title, TOC, headings | 99.4% |
-| 2 | Code block, image, table, text box | 92.5% |
-| 3 | Footnote, section break | 99.8% |
-| 4 | Different page size (landscape-ish section) | 98.9% |
-| 5 | Table, math typesetting, preset shape | 97.0% |
-| **Overall** | | **97.5%** |
-
-<p align="center">
-  <img src="./accuracy/page-2-reference.png" width="30%" alt="Microsoft Word reference"> 
-  <img src="./accuracy/page-2-rendered.png" width="30%" alt="docx-renderer output">
-  <img src="./accuracy/page-2-diff.png" width="30%" alt="pixel diff">
-</p>
-<p align="center"><sub>Page 2 (lowest score): Word reference · docx-renderer output · pixel diff</sub></p>
-
-Methodology and known gaps:
-
-- Score is `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch) (`threshold: 0.15`) per page.
-- The reference is a print-quality PDF, not a Word editing-view screenshot, so the diff reflects actual rendered output rather than non-printing marks.
-- Page 4's exact pixel dimensions (816×1056, distinct from the 794×1123 of the other pages) match the PDF exactly, confirming `docx-renderer` reproduces this document's per-section page-size change correctly.
-- Known gaps found by this comparison: a cumulative vertical drift of a few pixels by page 2, and a preset "no entry" shape on page 5 that Word renders as a filled shape but `docx-renderer` currently renders as unfilled outlines.
-- Reproduce: `pnpm dev`, select `a.docx` in the playground, take one full-page screenshot at viewport 1240×1754, then `node scripts/measure-accuracy.mjs <screenshot.png>`.
 
 ## Development
 

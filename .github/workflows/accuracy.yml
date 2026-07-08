@@ -1,0 +1,50 @@
+name: Update accuracy report
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/fixtures/a.docx'
+      - 'real/**'
+      - 'scripts/measure-all.mjs'
+      - 'scripts/lib/**'
+      - 'benchmark/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: accuracy-report
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chrome for agent-browser
+        run: pnpm exec agent-browser install --with-deps
+
+      - name: Run accuracy pipeline
+        run: pnpm measure:all
+
+      - name: Commit updated report
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore: update accuracy report [skip ci]'
+          file_pattern: 'accuracy/** docs/ACCURACY.md README.md'
