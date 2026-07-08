@@ -18,11 +18,19 @@ export async function renderParagraph(
 ): Promise<HTMLParagraphElement> {
 	const oParagraph = createElement('p');
 
-	// Evaluate PAGE/NUMPAGES field codes and replace stale cached values.
-	elem.children = ctx.resolveFieldRuns(elem.children);
+	// Evaluate PAGE/NUMPAGES field codes into a local array. Never write this
+	// back onto elem.children: header/footer paragraphs are shared objects
+	// reused across every page, so mutating them would freeze the field value
+	// resolved on the first render (e.g. PAGE always showing "1").
+	const children = ctx.resolveFieldRuns(elem.children);
 	oParagraph.dataset.uuid = elem.uuid;
 	ctx.renderClass(elem, oParagraph);
-	Object.assign(elem.cssStyle, parseLineSpacing(elem.props, ctx.currentSectionProperties()));
+	// snapToGrid is inheritable through the style chain, but elem.props only ever
+	// holds what this paragraph's own pPr literally sets. Resolve the effective
+	// value (own pPr > style chain > document default style > true) so docGrid
+	// line-pitch snapping below only applies where Word would actually apply it.
+	const snapToGrid = ctx.resolveSnapToGrid(elem.styleName, elem.props.snapToGrid);
+	Object.assign(elem.cssStyle, parseLineSpacing({ ...elem.props, snapToGrid }, ctx.currentSectionProperties()));
 	ctx.renderStyleValues(elem.cssStyle, oParagraph);
 	ctx.renderCommonProperties(oParagraph.style, elem.props);
 
@@ -38,7 +46,7 @@ export async function renderParagraph(
 	}
 
 	// TODO Run children can contain multiple DrawingML objects; current positioning only handles one reliably.
-	const shouldClear = elem.children.some(run => {
+	const shouldClear = children.some(run => {
 		const hasTopAndBottomDrawing = run?.children?.some(
 			child => child.type === DomType.Drawing && child.props.wrapType === WrapType.TopAndBottom
 		);
@@ -60,7 +68,7 @@ export async function renderParagraph(
 		return oParagraph;
 	}
 
-	oParagraph.dataset.overflow = await ctx.renderChildren(elem, oParagraph);
+	oParagraph.dataset.overflow = await ctx.renderElements(children, oParagraph);
 
 	return oParagraph;
 }

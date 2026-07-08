@@ -17,7 +17,7 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 | Page | Score |
 |---|---|
 | 1 | 99.4% |
-| 2 | 92.5% |
+| 2 | 92.6% |
 | 3 | 99.8% |
 | 4 | 98.9% |
 | 5 | 97.0% |
@@ -31,7 +31,7 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
-### Page 2 — 92.5%
+### Page 2 — 92.6%
 
 <p align="center">
   <img src="./accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Word reference, page 2">

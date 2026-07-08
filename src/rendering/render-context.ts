@@ -66,6 +66,11 @@ export interface RenderContext {
 
 	// ── lookup helpers ────────────────────────────────────────────────────────
 	findStyle(styleName: string): IDomStyle;
+	// Resolves the effective snapToGrid flag for a paragraph: direct pPr value
+	// wins, otherwise walks the paragraph's style basedOn chain (falling back
+	// to the document's default paragraph style), defaulting to true (OOXML's
+	// implicit default) when nothing in the chain sets it.
+	resolveSnapToGrid(styleName: string | undefined, ownSnapToGrid: boolean | undefined): boolean;
 	numberingClass(id: string, level: number): string;
 	findExternalRelation(id: string): { target?: string } | undefined;
 	findComment(id: string): { id: string; author: string; date: string } | undefined;

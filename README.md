@@ -26,7 +26,7 @@ The renderer already produces high-quality output across a wide range of real-wo
   </picture>
 </p>
 
-Representative page (page 2 of 5 — code block, image, table, text box) rendered by `docx-renderer`, scoring 92.5%:
+Representative page (page 2 of 5 — code block, image, table, text box) rendered by `docx-renderer`, scoring 92.6%:
 
 <p align="center">
   <img src="./accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Microsoft Word reference, page 2">

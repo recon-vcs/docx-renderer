@@ -153,6 +153,12 @@ export function parseLineSpacing(paragraphProperties: ParagraphProperties, secti
 					// grid pitch. Previously skipped entirely because line-height
 					// was already a string (calc(...)) by this point.
 					lineSpacing['line-height'] = `max(${originLine / 20}pt, ${docGrid.linePitch / 20}pt)`;
+				} else if (originLine === undefined) {
+					// No explicit w:spacing/line at all. A line-based document grid
+					// still governs these paragraphs: their natural single-line
+					// height is assumed to fit within one grid row, so Word snaps
+					// it up to exactly one grid pitch.
+					lineSpacing['line-height'] = `${docGrid.linePitch / 20}pt`;
 				}
 				break;
 			case DocGridType.Default:

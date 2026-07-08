@@ -7,8 +7,8 @@
 	<line x1="260" y1="14" x2="260" y2="174" stroke="#c3c2b7" stroke-width="1.5"/>
 	
 	<text x="8" y="39" font-size="13" font-weight="500" fill="#0b0b0b" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-renderer (this project)</text>
-	<path d="M260,22 L601.0558166422669,22 A4,4 0 0 1 605.0558166422669,26 L605.0558166422669,44 A4,4 0 0 1 601.0558166422669,48 L260,48 Z" fill="#2a78d6"/>
-	<text x="615.0558166422669" y="39" font-size="13" font-weight="600" fill="#0b0b0b" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">97.5%</text>
+	<path d="M260,22 L601.1549939908152,22 A4,4 0 0 1 605.1549939908152,26 L605.1549939908152,44 A4,4 0 0 1 601.1549939908152,48 L260,48 Z" fill="#2a78d6"/>
+	<text x="615.1549939908152" y="39" font-size="13" font-weight="600" fill="#0b0b0b" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">97.5%</text>
 
 	<text x="8" y="93" font-size="13" font-weight="500" fill="#0b0b0b" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-preview-sync (fork parent)</text>
 	<path d="M260,76 L581.3748068656491,76 A4,4 0 0 1 585.3748068656491,80 L585.3748068656491,98 A4,4 0 0 1 581.3748068656491,102 L260,102 Z" fill="#1baf7a"/>

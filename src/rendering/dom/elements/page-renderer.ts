@@ -44,6 +44,12 @@ export function createPageContent(props: SectionProperties): HTMLElement {
 		if (count > 1) {
 			oArticle.style.columnCount = `${count}`;
 			oArticle.style.columnGap = space;
+			// Word fills a page's columns sequentially (packs column 1 to the full
+			// page content height before spilling into column 2), not balanced.
+			// `balance` was tried and measured worse against the reference: the
+			// remaining column-break-point mismatch traces back to per-paragraph
+			// line-height still being shorter than Word's (see docGrid/font
+			// substitution notes), not to the fill mode.
 			oArticle.style.columnFill = 'auto';
 		}
 		if (separator) {

@@ -13,7 +13,13 @@ export function renderDefaultStyle(className: string): HTMLElement {
 			section.${c}>footer { position: absolute; bottom: 0; z-index: 1; }
 			.${c} table { border-collapse: collapse; break-inside: avoid; }
 			.${c} table td, .${c} table th { vertical-align: top; }
-			.${c} p { margin: 0pt; min-height: 1em; }
+			/* Word's paragraph spacing (w:spacing before/after) is always additive
+			   between consecutive paragraphs - it never collapses. A sub-pixel
+			   top padding keeps every paragraph's own box from being empty at the
+			   top, which stops the browser's default adjoining-margin collapse
+			   between a paragraph and its previous sibling without adding any
+			   visible offset. */
+			.${c} p { margin: 0pt; min-height: 1em; padding-top: 0.05px; }
 			.${c} span { white-space: pre-wrap; overflow-wrap: break-word; }
 			.${c} math { vertical-align: middle; }
 			.${c} .${c}-math-paragraph { break-inside: avoid; page-break-inside: avoid; }

@@ -336,6 +336,7 @@ export class HtmlRendererSync {
 			renderCommonProperties: (s, p) => renderCommonProperties(s, p),
 			// lookup helpers
 			findStyle: (styleName) => this.findStyle(styleName),
+			resolveSnapToGrid: (styleName, ownSnapToGrid) => this.resolveSnapToGrid(styleName, ownSnapToGrid),
 			numberingClass: (id, level) => this.numberingClass(id, level),
 			findExternalRelation: (id) => this.document.documentPart.rels.find(
 				it => it.id == id && it.targetMode === 'External'
@@ -664,6 +665,26 @@ export class HtmlRendererSync {
 
 	private findStyle(styleName: string) {
 		return styleName && this.styleMap?.[styleName];
+	}
+
+	private findDefaultParagraphStyle(): IDomStyle | undefined {
+		return Object.values(this.styleMap ?? {}).find(s => s.isDefault && s.type === 'paragraph');
+	}
+
+	private resolveSnapToGrid(styleName: string | undefined, ownSnapToGrid: boolean | undefined): boolean {
+		if (ownSnapToGrid !== undefined) {
+			return ownSnapToGrid;
+		}
+		let style = this.findStyle(styleName) || this.findDefaultParagraphStyle();
+		const visited = new Set<string>();
+		while (style && !visited.has(style.id)) {
+			visited.add(style.id);
+			if (style.paragraphProps?.snapToGrid !== undefined) {
+				return style.paragraphProps.snapToGrid;
+			}
+			style = style.basedOn ? this.styleMap?.[style.basedOn] : undefined;
+		}
+		return true;
 	}
 
 	private refreshTabStops() {

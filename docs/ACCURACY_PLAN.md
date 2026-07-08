@@ -1,9 +1,11 @@
 # Accuracy 改善計画 — p1〜p4 100% 目標
 
-現状 (`ACCURACY.md`, pixelmatch threshold 0.15):
+開始時 (`ACCURACY.md`, pixelmatch threshold 0.15):
 p1 99.4 / p2 92.5 / p3 99.8 / p4 98.9 / p5 97.0
 
-100% 到達可能性: 閾値 0.15 でフォント AA 差は吸収される。位置完全一致なら diff≈0（p3 99.8 が証左）。残差は全て layout 差。
+Phase 1-3 実施後: p1 99.4 / p2 92.6 / p3 99.8 / p4 98.9 / p5 97.0（回帰なし、5ページ維持）
+
+100% 到達可能性: 閾値 0.15 でフォント AA 差は吸収される。位置完全一致なら diff≈0（p3 99.8 が証左）。ただし調査の結果、残差の主因は docGrid ではなく **本環境に Meiryo/Yu Gothic/Yu Mincho が未インストールで、フォールバックフォントの自然行高が Word 実測より系統的に小さいこと**と判明（詳細は Phase 2 参照）。これはコードの一般ロジックでは解消できない環境制約であり、100% 到達の主な障害として残る。図形(VML/DrawingML)関連の残差はユーザー指示により別PRへ先送り。
 
 ## 原因（diff 画像 + コード診断済）
 
@@ -56,8 +58,14 @@ rendered: ほぼ全部左カラム縦一列。column break は docx に存在し
 
 各 Phase 後 `pnpm measure:all` で全5ページ回帰確認。
 
-1. **Phase 1**: PAGE field 修正（原因1）— 独立・低リスク・p3/p4/p5 即効
-2. **Phase 2**: docGrid snap 一般化（原因2）— 最大インパクト。p2/p4 大幅改善見込み、p5 回帰監視
-3. **Phase 3**: 2段組カラム高さ（原因3）
-4. **Phase 4**: p2 wrap 個別修正（原因4）— Phase 2 後の新 diff 基準で
-5. **Phase 5**: 残差潰し（原因5）— p1〜p4 100% まで反復
+1. **Phase 1**: PAGE field 修正（原因1）— 完了。`inline-renderer.ts` の `elem.children = resolveFieldRuns(...)` 破壊的代入を廃止、ローカル変数 + `ctx.renderElements` に変更。p3/p4/p5 のページ番号が正しく描画されることを目視確認済み（スコア表示は小数点丸めで同値だが diff 画像のページ番号ブロブは解消）。回帰なし。
+
+2. **Phase 2**: docGrid snap — 完了、ただし当初仮説は誤りと判明。`a.docx` の styles.xml を直接確認したところ、既定段落スタイル "Normal"(styleId `a`) は `<w:snapToGrid w:val="0"/>` を明示しており、本文の大半は本来 grid snap の対象外（`ad` = TOC Heading のみ true に戻す）。一方 `elem.props.snapToGrid` は段落自身の pPr にしか値が入らず、スタイル継承が一切行われていなかった（`inline-renderer.ts` は `elem.props` を直接 `parseLineSpacing` に渡すのみ）。当初計画通り「spacing.line 不在なら常に pitch へ snap」を実装したところ、ほぼ全段落に line-height が加算されて **p2→p3 の改行位置がずれてページ数が 5→6 に増加する回帰**が発生（`測定必須`のとおり検出・停止）。
+   - 根本修正: `RenderContext.resolveSnapToGrid(styleName, ownSnapToGrid)` を新設（`html-renderer-sync.ts`）。直接指定 > スタイルの `basedOn` チェーン > ドキュメント既定段落スタイル > true（OOXML既定）の順で解決し、`inline-renderer.ts` はこれを `parseLineSpacing` に渡すよう変更。
+   - grid snap 自体（`spacing-between-lines.ts`）は元の設計通り実装して残したが、正しく解決された `snapToGrid` によりほぼ全段落でスキップされるため、実質的な影響は僅小（p2 92.5%→92.6%）。
+   - 実測した ref のピッチ約38px（p4 Letter セクションの "H"/"Bbb" 制御段落群、Latin cap-top基準で複数段落間隔から算出）は docGrid 由来ではなく、Meiryo フォント（本環境に未インストール、IPA Gothic 等へフォールバック）の実際の自然行高が、フォールバックフォントの行高より系統的に大きいことに起因すると判明。これはフォントメトリクスの環境差であり、コード側の一般ロジックでは解消不可（残差として報告）。
+   - 副次的に発見した独立バグを合わせて修正: 段落の `margin-top`/`margin-bottom`（`w:spacing before/after`）はブラウザの既定 margin collapse により隣接段落間で `max()` に縮退していたが、Word は before/after を常に加算する。`default-styles.ts` の `.${c} p` に `padding-top: 0.05px` を追加し、視覚上のオフセットなしに collapse を止めた（一般的な CSS 手法、全段落に一律適用）。
+
+3. **Phase 3**: 2段組カラム高さ — 部分的に完了、当初仮説の一部も誤りと判明。region article には実際には既に `contentHeight` が設定されていた（`html-renderer-sync.ts` の単一セクション分岐 `renderPage`）。ブラウザ DOM 調査で確認済み。真因は `columnFill: auto`（最初の列をページ全高まで埋めてから次列へ）がそのまま機能していたことで、Word の実際の分割点より段落が「短すぎる」ため列1に入りすぎていた（Phase 2 で判明したフォントメトリクス差が根本原因）。`columnFill: balance` も試したが reference は明らかに不均等分割（列1が列2よりずっと長い）であり balance は悪化したため `auto` に確定（コメントに実測根拠を明記）。列高さ自体の割当ロジックに変更は不要だった。
+
+4. **Phase 4 / 5**: p2/p1/p3 の残差を diff 画像で再確認。コード画像・テキストボックス・箇条書き番号・TOCリーダー線・footnote 位置はいずれも「二重像」パターン（赤+黄が数px〜十数pxずれて重なる）で、すべて Phase 2 で特定したフォントメトリクス環境差の帰結。p2 のアンカーテーブル（緑色セル表）・p5 の表は見た目上ボーダー/シェーディング/セル配置は reference と一致しており、diff が真っ赤に見えるのは高密度な境界線パターンに数px の累積ズレが乗っているため（表そのものの実装バグではない）。四角形埋め込み（図形）と写真前面まわりの wrap 差、および p5 の禁止マーク図形はユーザー指示によりスコープ外（別PR）。
