@@ -1,5 +1,5 @@
 import { render as renderOurs } from '../src/docx-preview';
-import { renderAsync as renderSync } from 'docx-preview-sync';
+import { renderAsync as renderPreviewSync } from 'docx-preview-sync';
 import { renderAsync as renderOriginal } from 'docx-preview';
 
 const fixtureUrls = import.meta.glob<string>('../tests/fixtures/a.docx', { query: '?url', import: 'default', eager: true });
@@ -19,7 +19,7 @@ async function renderWith(renderer: string, blob: Blob) {
 		if (renderer === 'docx-renderer') {
 			await renderOurs(blob, documentContainer, styleContainer, options);
 		} else if (renderer === 'docx-preview-sync') {
-			await renderSync(blob, documentContainer, styleContainer, options);
+			await renderPreviewSync(blob, documentContainer, styleContainer, options);
 		} else {
 			await renderOriginal(blob, documentContainer, styleContainer, options);
 		}
