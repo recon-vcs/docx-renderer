@@ -28,6 +28,7 @@ import { renderText as renderTextFn } from '@docx/rendering/dom/elements/inline-
 import { resolveFieldRuns as resolveFieldRunsFn, resolveSimpleField as resolveSimpleFieldFn } from '@docx/rendering/dom/elements/fields-renderer';
 import { renderDefaultStyle as renderDefaultStyleFn, renderWrapper as renderWrapperFn } from '@docx/rendering/dom/styles/default-styles';
 import { processStyleName as processStyleNameFn, processStyles as processStylesFn, renderFontTable as renderFontTableFn, renderStyles as renderStylesFn, renderTheme as renderThemeFn } from '@docx/rendering/dom/styles/document-styles';
+import { stripTocHyperlinkStyles } from '@docx/rendering/dom/core/toc-hyperlink';
 import { waitForDeclaredFonts } from '@docx/rendering/dom/styles/font-loading';
 import { levelTextToContent as levelTextToContentFn, numberingClass as numberingClassFn, numberingCounter as numberingCounterFn, numFormatToCssValue as numFormatToCssValueFn, processNumberings as processNumberingsFn, renderNumbering as renderNumberingFn, styleToString as styleToStringFn } from '@docx/rendering/dom/styles/numbering-styles';
 import { createPage as createPageFn, createPageContent as createPageContentFn, renderHeaderFooterRef as renderHeaderFooterRefFn } from '@docx/rendering/dom/elements/page-renderer';
@@ -176,6 +177,7 @@ export class HtmlRendererSync {
 		// before any page splitting or rendering, so page children already have correct parents.
 		linkParents(document.documentPart.body);
 		processElement(document.documentPart.body);
+		stripTocHyperlinkStyles(document.documentPart.body, document.stylesPart?.styles);
 
 		// Pagination measures rendered element heights synchronously while
 		// appending content. Fonts named only in CSS (e.g. system fonts like
@@ -228,7 +230,7 @@ export class HtmlRendererSync {
 	}
 
 	private renderTheme(themePart: ThemePart, styleContainer: HTMLElement) {
-		renderThemeFn(themePart, styleContainer, this.documentStylesCallbacks());
+		renderThemeFn(themePart, styleContainer, this.documentStylesCallbacks(), this.document.settingsPart?.settings?.themeFontLang);
 	}
 
 	private processStyleName(className: string): string {

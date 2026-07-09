@@ -7,6 +7,13 @@ export interface WmlSettings {
 	endnoteProps: NoteProperties;
 	evenAndOddHeaders: boolean;
 	footnoteProps: NoteProperties;
+	themeFontLang: ThemeFontLanguages;
+}
+
+export interface ThemeFontLanguages {
+	val?: string;
+	eastAsia?: string;
+	bidi?: string;
 }
 
 export interface NoteProperties {
@@ -38,6 +45,15 @@ export function parseSettings(elem: Element, xml: XmlParser) {
 			// Document-Wide Footnote Properties
 			case "footnotePr":
 				result.footnoteProps = parseNoteProperties(el, xml);
+				break;
+			// Theme Font Languages - select which <a:font script="..."> entry
+			// substitutes for an empty theme typeface
+			case "themeFontLang":
+				result.themeFontLang = {
+					val: xml.attr(el, "val"),
+					eastAsia: xml.attr(el, "eastAsia"),
+					bidi: xml.attr(el, "bidi"),
+				};
 				break;
 
 		}

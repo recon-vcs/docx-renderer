@@ -95,3 +95,13 @@ fontconfig で /mnt/c/Windows/Fonts を参照（メイリオ実体で測定可�
 - p4 0.6%: 2段組の分割点微差
 - p5 2.9%: 禁止マーク図形（スコープ外・別PR）・数式位置
 - 図形本体（VML/DrawingML geometry）は別PR
+
+## ラウンド3 (2026-07-09、「文字ずれ」対応)
+
+ユーザー指摘「図・写真は合うが文字がずれる」の真因は位置ではなく**フォント解決**だった:
+
+1. **theme CSS 変数の未定義**: renderTheme は `--docx-{major,minor}HAnsi-font` しか設定せず、スタイル CSS が参照する `--docx-*EastAsia-font` / `--docx-*Bidi-font` が未定義 → `var()` 未定義で font-family 宣言全体が invalid → 見出し・表題が UA フォールバック（system-ui、太く見える）で描画されていた。さらに theme の `<a:ea typeface=""/>`（空）は「`<a:font script="Jpan">` を themeFontLang で引け」の意味なのに未実装。修正: settings.xml の `themeFontLang` をパース（settings.ts）、theme の script 別 typeface を収集（theme.ts）、6変数すべてを言語→script 解決付きで定義（document-styles.ts）。表題/見出しが 游ゴシック Light で正しく描画。
+2. **TOC 内 Hyperlink スタイル**: TOC entry run は rStyle=Hyperlink（色+下線）を持つが、Word は TOC field 結果内でそれを表示しない（本物のリンクは表示する）。fldChar begin/end を文書順に追跡して TOC instruction 内の run から Hyperlink 参照を除去（toc-hyperlink.ts、複数段落跨ぎ対応）。TOC が黒・下線なしに。
+
+テキストボックスは position/文字とも ±1px（ラウンド2 の修正で解消済みだったことを実測確認）。
+p1 99.4（内訳 99.39→99.41）。残る TOC 差はリーダー線の描画方式（border-dotted vs '.' グリフ）と 内容→見出し1 の gap 約10px。

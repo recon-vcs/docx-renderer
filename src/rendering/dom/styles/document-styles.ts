@@ -20,21 +20,57 @@ export function processStyleName(className: string, baseClassName: string): stri
 	return className ? `${baseClassName}_${escapeClassName(className)}` : baseClassName;
 }
 
+// BCP-47 primary language → ISO 15924 script tag used by <a:font script="...">.
+const LANGUAGE_SCRIPTS: Record<string, string> = {
+	ja: 'Jpan',
+	ko: 'Hang',
+	'zh-cn': 'Hans', 'zh-sg': 'Hans',
+	'zh-tw': 'Hant', 'zh-hk': 'Hant', 'zh-mo': 'Hant', zh: 'Hant',
+	ar: 'Arab', fa: 'Arab', ur: 'Arab',
+	he: 'Hebr',
+	th: 'Thai',
+	hi: 'Deva', mr: 'Deva', ne: 'Deva',
+};
+
+function scriptForLanguage(lang: string | undefined): string | undefined {
+	if (!lang) return undefined;
+	const normalized = lang.toLowerCase();
+	return LANGUAGE_SCRIPTS[normalized] ?? LANGUAGE_SCRIPTS[normalized.split('-')[0]];
+}
+
+// An empty theme typeface (e.g. <a:ea typeface=""/>) means "look the face up
+// in the <a:font script="..."> list via the document's themeFontLang". Every
+// slot must resolve to SOMETHING: an undefined var() invalidates the whole
+// font-family declaration at computed-value time, dropping the element to the
+// UA/base font.
+function resolveThemeTypeface(
+	font: { latinTypeface: string; scriptTypefaces?: Record<string, string> },
+	explicit: string | undefined,
+	lang: string | undefined,
+): string {
+	if (explicit) return explicit;
+	const script = scriptForLanguage(lang);
+	const scriptFace = script ? font.scriptTypefaces?.[script] : undefined;
+	// An empty value would still break the font-family declaration where the
+	// var() is used, so bottom out at a generic family.
+	return scriptFace || font.latinTypeface || 'sans-serif';
+}
+
 export function renderTheme(
 	themePart: ThemePart,
 	styleContainer: HTMLElement,
-	callbacks: DocumentStylesCallbacks
+	callbacks: DocumentStylesCallbacks,
+	themeFontLang?: { val?: string; eastAsia?: string; bidi?: string },
 ): void {
 	const variables: Record<string, string> = {};
 	const fontScheme = themePart.theme?.fontScheme;
 
 	if (fontScheme) {
-		if (fontScheme.majorFont) {
-			variables['--docx-majorHAnsi-font'] = fontScheme.majorFont.latinTypeface;
-		}
-
-		if (fontScheme.minorFont) {
-			variables['--docx-minorHAnsi-font'] = fontScheme.minorFont.latinTypeface;
+		for (const [slot, font] of [['major', fontScheme.majorFont], ['minor', fontScheme.minorFont]] as const) {
+			if (!font) continue;
+			variables[`--docx-${slot}HAnsi-font`] = resolveThemeTypeface(font, font.latinTypeface, themeFontLang?.val);
+			variables[`--docx-${slot}EastAsia-font`] = resolveThemeTypeface(font, font.eaTypeface, themeFontLang?.eastAsia);
+			variables[`--docx-${slot}Bidi-font`] = resolveThemeTypeface(font, font.csTypeface, themeFontLang?.bidi);
 		}
 	}
 

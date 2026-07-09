@@ -20,6 +20,10 @@ export interface DmlFormInfo {
     latinTypeface: string;
     eaTypeface: string;
     csTypeface: string;
+    // <a:font script="Jpan" typeface="..."/> entries: per-script faces that
+    // substitute for an empty latin/ea/cs typeface, selected through the
+    // document's themeFontLang.
+    scriptTypefaces: Record<string, string>;
 }
 
 export function parseTheme(elem: Element, xml: XmlParser) {
@@ -73,9 +77,20 @@ export function parseFontScheme(elem: Element, xml: XmlParser) {
 }
 
 export function parseFontInfo(elem: Element, xml: XmlParser): DmlFormInfo {
+    const scriptTypefaces: Record<string, string> = {};
+
+    for (const el of xml.elements(elem, "font")) {
+        const script = xml.attr(el, "script");
+        const typeface = xml.attr(el, "typeface");
+        if (script && typeface) {
+            scriptTypefaces[script] = typeface;
+        }
+    }
+
     return {
         latinTypeface: xml.elementAttr(elem, "latin", "typeface"),
         eaTypeface: xml.elementAttr(elem, "ea", "typeface"),
         csTypeface: xml.elementAttr(elem, "cs", "typeface"),
+        scriptTypefaces,
     };
 }
