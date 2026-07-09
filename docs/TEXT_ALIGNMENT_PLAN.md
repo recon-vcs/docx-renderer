@@ -53,3 +53,11 @@
 - `ACCURACY.md` の丸め表示は p1 99.5%。`accuracy/docx-renderer` の画像は最新採点で更新。
 
 根本原因候補: run spacing を縦余白として扱う誤変換、TOC leader の描画モデル違い、CJK 互換設定未反映。
+
+## 測定環境修正
+
+- 2026-07-09: 通常の agent-browser は `/mnt/c/Windows/Fonts` を fontconfig 検索対象にしておらず、`Meiryo` / `Yu Gothic` / `游ゴシック` が fallback と同じ metrics になっていた。
+- `scripts/measure-all.mjs` が project-local `fonts.conf` を生成し、`/mnt/c/Windows/Fonts` がある時だけ追加するよう修正。agent-browser は専用 profile で起動し直す。
+- `pnpm measure:all`: docx-renderer 98.901%、p1 99.531 / p2 98.702 / p3 99.787 / p4 99.387 / p5 97.101。既存 accuracy 画像と一致。
+
+結論: 行高を増やす修正は p2 を壊すので却下。まず測定ブラウザのフォント解決を固定した。残る p1 の上寄りは Windows フォント使用後の本物の layout 差として扱う。

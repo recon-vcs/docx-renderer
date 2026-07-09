@@ -59,10 +59,21 @@ function gdiLineHeightPx(ratios: FontRatios, fontSizePx: number): number {
  * Replaces an element's `line-height: normal` with the GDI-rounded line
  * height of its computed font, so line stacking matches Word. The element
  * must already be attached to the document.
+ *
+ * `force` skips the "already non-normal" guard. Runs never carry their own
+ * OOXML line-height (only paragraphs do, via w:spacing/line), so a run's
+ * computed line-height reads non-`normal` only because it inherited its
+ * paragraph's already-GDI-corrected value - which was computed from the
+ * paragraph's own default/strut font, before this run (often a different,
+ * taller font from an explicit rFonts override) existed. Skipping the guard
+ * lets each run measure and apply its own font's line height regardless of
+ * what it inherited; the browser's line box already takes the max across
+ * inline boxes, so this only ever grows the line, never shrinks a
+ * paragraph's genuine exact/atLeast override.
  */
-export function applyGdiLineHeight(el: HTMLElement): void {
+export function applyGdiLineHeight(el: HTMLElement, options?: { force?: boolean }): void {
 	const cs = getComputedStyle(el);
-	if (cs.lineHeight !== 'normal') return;
+	if (cs.lineHeight !== 'normal' && !options?.force) return;
 
 	const fontSizePx = parseFloat(cs.fontSize);
 	if (!Number.isFinite(fontSizePx) || fontSizePx <= 0) return;

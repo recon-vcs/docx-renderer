@@ -108,7 +108,7 @@ export async function renderRun(
 	ctx.renderStyleValues(elem.cssStyle, oSpan);
 
 	const isOverflow = await ctx.appendChildren(parent, oSpan);
-	applyGdiLineHeight(oSpan);
+	applyGdiLineHeight(oSpan, { force: true });
 	if (isOverflow === Overflow.SELF) {
 		oSpan.dataset.overflow = Overflow.SELF;
 		return oSpan;

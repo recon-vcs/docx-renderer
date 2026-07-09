@@ -37,7 +37,7 @@ Representative page (page 2 of 5 — code block, image, table, text box) rendere
 
 Full per-page, per-library breakdown (all 5 pages × all 3 libraries, with reference/rendered/diff images): [`ACCURACY.md`](./ACCURACY.md).
 
-Methodology: `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch), scored against a Word PDF export (not a Word editing-view screenshot, so the diff reflects rendered output, not non-printing marks). Reproduce with `pnpm measure:all`.
+Methodology: `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch), scored against a Word PDF export (not a Word editing-view screenshot, so the diff reflects rendered output, not non-printing marks). Reproduce with `pnpm measure:all`; on WSL/Linux it uses a project-local fontconfig file and includes `/mnt/c/Windows/Fonts` when present, so `agent-browser` measures with Windows Japanese fonts instead of fallback fonts.
 <!-- ACCURACY:END -->
 
 ---

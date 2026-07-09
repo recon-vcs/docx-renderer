@@ -11,7 +11,7 @@
 // and the pixel-diff devDependencies (pixelmatch, pngjs). Runs standalone in CI;
 // see .github/workflows/accuracy.yml.
 import { spawn, execFileSync } from 'node:child_process';
-import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { scoreRenderer } from './lib/pixel-diff.mjs';
 import { renderComparisonChart } from './lib/comparison-chart.mjs';
@@ -20,6 +20,9 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = 5183;
 const BASE_URL = `http://localhost:${PORT}/`;
 const SCRATCH = fileURLToPath(new URL('../.accuracy-scratch', import.meta.url));
+const WINDOWS_FONT_DIR = '/mnt/c/Windows/Fonts';
+const FONTCONFIG_FILE = `${SCRATCH}/fonts.conf`;
+const BROWSER_PROFILE = `${SCRATCH}/agent-browser-profile`;
 
 const RENDERERS = [
 	{ value: 'docx-renderer', label: 'docx-renderer', title: 'docx-renderer (this project)', highlight: true },
@@ -28,12 +31,50 @@ const RENDERERS = [
 ];
 
 function ab(args) {
-	const out = execFileSync('agent-browser', ['--json', ...args], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+	const out = execFileSync('agent-browser', ['--json', '--profile', BROWSER_PROFILE, ...args], {
+		encoding: 'utf8',
+		env: accuracyEnv(),
+		maxBuffer: 32 * 1024 * 1024,
+	});
 	const parsed = JSON.parse(out);
 	if (parsed.success === false || parsed.error) {
 		throw new Error(`agent-browser ${args.join(' ')} failed: ${parsed.error}`);
 	}
 	return parsed.data;
+}
+
+function accuracyEnv() {
+	return {
+		...process.env,
+		FONTCONFIG_FILE,
+	};
+}
+
+function writeFontconfig() {
+	mkdirSync(`${SCRATCH}/fontconfig-cache`, { recursive: true });
+
+	const fontDirs = [
+		'  <dir>/usr/share/fonts</dir>',
+		'  <dir>/usr/local/share/fonts</dir>',
+		'  <dir prefix="xdg">fonts</dir>',
+		'  <dir>~/.fonts</dir>',
+	];
+
+	if (existsSync(WINDOWS_FONT_DIR)) {
+		fontDirs.push(`  <dir>${WINDOWS_FONT_DIR}</dir>`);
+	}
+
+	writeFileSync(FONTCONFIG_FILE, [
+		'<?xml version="1.0"?>',
+		'<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">',
+		'<fontconfig>',
+		...fontDirs,
+		'  <include ignore_missing="yes">/etc/fonts/conf.d</include>',
+		`  <cachedir>${SCRATCH}/fontconfig-cache</cachedir>`,
+		'  <cachedir prefix="xdg">fontconfig</cachedir>',
+		'</fontconfig>',
+		'',
+	].join('\n'));
 }
 
 async function waitForServer(url, timeoutMs = 20000) {
@@ -52,6 +93,7 @@ async function waitForServer(url, timeoutMs = 20000) {
 
 async function main() {
 	mkdirSync(SCRATCH, { recursive: true });
+	writeFontconfig();
 
 	const server = spawn(
 		'pnpm',
@@ -61,6 +103,11 @@ async function main() {
 
 	try {
 		await waitForServer(BASE_URL);
+		try {
+			ab(['close', '--all']);
+		} catch {
+			// Fresh profile startup matters more than best-effort cleanup.
+		}
 		ab(['open', BASE_URL]);
 		ab(['set', 'viewport', '1240', '1754']);
 
@@ -184,7 +231,7 @@ function updateReadme(runs) {
 		'',
 		'Full per-page, per-library breakdown (all 5 pages × all 3 libraries, with reference/rendered/diff images): [`ACCURACY.md`](./ACCURACY.md).',
 		'',
-		'Methodology: `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch), scored against a Word PDF export (not a Word editing-view screenshot, so the diff reflects rendered output, not non-printing marks). Reproduce with `pnpm measure:all`.',
+		'Methodology: `1 - (mismatched pixels / total pixels)` via [`pixelmatch`](https://github.com/mapbox/pixelmatch), scored against a Word PDF export (not a Word editing-view screenshot, so the diff reflects rendered output, not non-printing marks). Reproduce with `pnpm measure:all`; on WSL/Linux it uses a project-local fontconfig file and includes `/mnt/c/Windows/Fonts` when present, so `agent-browser` measures with Windows Japanese fonts instead of fallback fonts.',
 	].join('\n');
 
 	const readmePath = `${ROOT}/README.md`;

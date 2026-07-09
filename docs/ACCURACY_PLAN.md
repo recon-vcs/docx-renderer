@@ -107,3 +107,11 @@ fontconfig で /mnt/c/Windows/Fonts を参照（メイリオ実体で測定可�
 
 テキストボックスは position/文字とも ±1px（ラウンド2 の修正で解消済みだったことを実測確認）。
 p1 99.4（内訳 99.39→99.41）。残る TOC 差はリーダー線の描画方式（border-dotted vs '.' グリフ）と 内容→見出し1 の gap 約10px。
+
+## ラウンド4 (2026-07-09、測定ブラウザのフォント解決固定)
+
+通常起動の agent-browser は `/mnt/c/Windows/Fonts` を fontconfig に入れておらず、`Meiryo` / `Yu Gothic` / `游ゴシック` が fallback metrics になった。`/mnt/c` のファイルは見えるがフォント検索対象ではなかった。
+
+`scripts/measure-all.mjs` で project-local `fonts.conf` を生成し、`/mnt/c/Windows/Fonts` がある時だけ追加。agent-browser は `.accuracy-scratch/agent-browser-profile` で起動し直す。
+
+検証: `pnpm test` 103 passed、`pnpm run build` 成功、`pnpm measure:all` 成功。スコアは既存 baseline と一致（overall 98.901%、p1 99.531 / p2 98.702 / p3 99.787 / p4 99.387 / p5 97.101）。
