@@ -3,7 +3,7 @@ name: Update accuracy report
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main-tmp]
     paths:
       - 'src/**'
       - 'tests/fixtures/a.docx'
