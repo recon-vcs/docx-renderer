@@ -1,5 +1,7 @@
 # Accuracy 改善計画 — p1〜p4 100% 目標
 
+現行の文字ズレ対策は [TEXT_ALIGNMENT_PLAN.md](./TEXT_ALIGNMENT_PLAN.md) を優先する。以下は過去ラウンドの調査履歴。
+
 開始時 (`ACCURACY.md`, pixelmatch threshold 0.15):
 p1 99.4 / p2 92.5 / p3 99.8 / p4 98.9 / p5 97.0
 
