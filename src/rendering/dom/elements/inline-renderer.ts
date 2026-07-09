@@ -26,16 +26,21 @@ export async function renderParagraph(
 	const children = ctx.resolveFieldRuns(elem.children);
 	oParagraph.dataset.uuid = elem.uuid;
 	ctx.renderClass(elem, oParagraph);
-	// snapToGrid is inheritable through the style chain, but elem.props only ever
-	// holds what this paragraph's own pPr literally sets. Resolve the effective
-	// value (own pPr > style chain > document default style > true) so docGrid
-	// line-pitch snapping below only applies where Word would actually apply it.
+	const style = ctx.findStyle(elem.styleName);
+
+	// snapToGrid and spacing are both inheritable through the style chain, but
+	// elem.props only ever holds what this paragraph's own pPr literally sets -
+	// most paragraphs get their w:spacing/line from their style, not their own
+	// pPr. Resolving only snapToGrid while leaving spacing unresolved made the
+	// docGrid branch below see "no line spacing at all" for those paragraphs
+	// and snap them to a full grid row, clobbering the style's own (correct)
+	// line-height with an inline override of higher specificity.
 	const snapToGrid = ctx.resolveSnapToGrid(elem.styleName, elem.props.snapToGrid);
-	Object.assign(elem.cssStyle, parseLineSpacing({ ...elem.props, snapToGrid }, ctx.currentSectionProperties()));
+	const spacing = elem.props.spacing ?? style?.paragraphProps?.spacing;
+	Object.assign(elem.cssStyle, parseLineSpacing({ ...elem.props, snapToGrid, spacing }, ctx.currentSectionProperties()));
 	ctx.renderStyleValues(elem.cssStyle, oParagraph);
 	ctx.renderCommonProperties(oParagraph.style, elem.props);
 
-	const style = ctx.findStyle(elem.styleName);
 	elem.props.tabs = _.unionBy(elem.props.tabs, style?.paragraphProps?.tabs, 'position');
 
 	const numbering = elem.props.numbering ?? style?.paragraphProps?.numbering;
