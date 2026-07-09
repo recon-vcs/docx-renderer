@@ -1,4 +1,4 @@
-<svg viewBox="0 0 680 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pixel-accuracy comparison against Word's PDF export of a.docx (axis truncated at 40%): docx-renderer (this project) 98.4%, docx-preview-sync (fork parent) 94.2%, docx-preview (docxjs, original) 53.3%">
+<svg viewBox="0 0 680 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pixel-accuracy comparison against Word's PDF export of a.docx (axis truncated at 40%): docx-renderer (this project) 98.9%, docx-preview-sync (fork parent) 94.2%, docx-preview (docxjs, original) 53.3%">
 	<rect x="0" y="0" width="680" height="216" fill="transparent"/>
 	<line x1="260" y1="14" x2="260" y2="174" stroke="#2c2c2a" stroke-width="1"/>
 	<line x1="380" y1="14" x2="380" y2="174" stroke="#2c2c2a" stroke-width="1"/>
@@ -7,8 +7,8 @@
 	<line x1="260" y1="14" x2="260" y2="174" stroke="#383835" stroke-width="1.5"/>
 	
 	<text x="8" y="39" font-size="13" font-weight="500" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-renderer (this project)</text>
-	<path d="M260,22 L606.631160168304,22 A4,4 0 0 1 610.631160168304,26 L610.631160168304,44 A4,4 0 0 1 606.631160168304,48 L260,48 Z" fill="#3987e5"/>
-	<text x="620.631160168304" y="39" font-size="13" font-weight="600" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">98.4%</text>
+	<path d="M260,22 L609.2214957137429,22 A4,4 0 0 1 613.2214957137429,26 L613.2214957137429,44 A4,4 0 0 1 609.2214957137429,48 L260,48 Z" fill="#3987e5"/>
+	<text x="623.2214957137429" y="39" font-size="13" font-weight="600" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">98.9%</text>
 
 	<text x="8" y="93" font-size="13" font-weight="500" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">docx-preview-sync (fork parent)</text>
 	<path d="M260,76 L581.35908868528,76 A4,4 0 0 1 585.35908868528,80 L585.35908868528,98 A4,4 0 0 1 581.35908868528,102 L260,102 Z" fill="#199e70"/>

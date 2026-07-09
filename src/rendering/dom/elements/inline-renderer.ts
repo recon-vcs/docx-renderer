@@ -3,6 +3,7 @@ import { WmlRun } from '@docx/ooxml/wordprocessingml/document/model/run';
 import { parseLineSpacing } from '@docx/ooxml/wordprocessingml/document/model/spacing-between-lines';
 import { DomType, OpenXmlElement, WmlCharacter, WmlHyperlink, WmlText, WrapType } from '@docx/ooxml/wordprocessingml/document/model/dom';
 import { appendChildren, createElement } from '@docx/rendering/dom/core/dom-utils';
+import { applyGdiLineHeight } from '@docx/rendering/dom/styles/gdi-line-height';
 import { Overflow } from '@docx/rendering/measurement/overflow';
 import type { RenderContext } from '@docx/rendering/render-context';
 import * as _ from 'lodash-es';
@@ -63,14 +64,33 @@ export async function renderParagraph(
 	oParagraph.style.position = 'relative';
 
 	const isOverflow = await ctx.appendChildren(parent, oParagraph);
+	applyGdiLineHeight(oParagraph);
 	if (isOverflow === Overflow.SELF) {
 		oParagraph.dataset.overflow = Overflow.SELF;
 		return oParagraph;
 	}
 
 	oParagraph.dataset.overflow = await ctx.renderElements(children, oParagraph);
+	alignDrawingOnlyParagraph(oParagraph, ctx);
 
 	return oParagraph;
+}
+
+// Word sizes a line that holds ONLY an inline drawing to exactly the
+// drawing's height, while a drawing on a line with text sits on the text
+// baseline (leaving the font's descent below it). CSS baseline alignment
+// always reserves the paragraph strut's descent, so a drawing-only
+// paragraph would render ~1 descent taller than Word and push everything
+// below it down. Bottom-aligning the drawings when the paragraph has no
+// visible text reproduces Word's exact line height.
+function alignDrawingOnlyParagraph(oParagraph: HTMLParagraphElement, ctx: RenderContext): void {
+	const drawings = Array.from(oParagraph.querySelectorAll<HTMLElement>(`:scope span.${ctx.className}-drawing, :scope img`));
+	if (drawings.length === 0) return;
+	if ((oParagraph.textContent ?? '').trim() !== '') return;
+
+	for (const drawing of drawings) {
+		drawing.style.verticalAlign = 'text-bottom';
+	}
 }
 
 export async function renderRun(
@@ -88,6 +108,7 @@ export async function renderRun(
 	ctx.renderStyleValues(elem.cssStyle, oSpan);
 
 	const isOverflow = await ctx.appendChildren(parent, oSpan);
+	applyGdiLineHeight(oSpan);
 	if (isOverflow === Overflow.SELF) {
 		oSpan.dataset.overflow = Overflow.SELF;
 		return oSpan;

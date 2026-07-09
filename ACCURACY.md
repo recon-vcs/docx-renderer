@@ -8,7 +8,7 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 
 | Library | Pages rendered | Overall score |
 |---|---|---|
-| docx-renderer (this project) | 5 / 5 | **98.4%** |
+| docx-renderer (this project) | 5 / 5 | **98.9%** |
 | docx-preview-sync (fork parent) | 5 / 5 | **94.2%** |
 | docx-preview (docxjs, original) | 3 / 5 | **53.3%** |
 
@@ -17,10 +17,10 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 | Page | Score |
 |---|---|
 | 1 | 99.4% |
-| 2 | 97.0% |
+| 2 | 98.7% |
 | 3 | 99.8% |
-| 4 | 99.0% |
-| 5 | 97.0% |
+| 4 | 99.4% |
+| 5 | 97.1% |
 
 ### Page 1 — 99.4%
 
@@ -31,7 +31,7 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
-### Page 2 — 97.0%
+### Page 2 — 98.7%
 
 <p align="center">
   <img src="./accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Word reference, page 2">
@@ -49,7 +49,7 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
-### Page 4 — 99.0%
+### Page 4 — 99.4%
 
 <p align="center">
   <img src="./accuracy/docx-renderer/page-4-reference.png" width="30%" alt="Word reference, page 4">
@@ -58,7 +58,7 @@ Every library renders `tests/fixtures/a.docx` with `{ breakPages: true }` inside
 </p>
 <p align="center"><sub>Word reference · rendered output · pixel diff</sub></p>
 
-### Page 5 — 97.0%
+### Page 5 — 97.1%
 
 <p align="center">
   <img src="./accuracy/docx-renderer/page-5-reference.png" width="30%" alt="Word reference, page 5">

@@ -28,6 +28,7 @@ import { renderText as renderTextFn } from '@docx/rendering/dom/elements/inline-
 import { resolveFieldRuns as resolveFieldRunsFn, resolveSimpleField as resolveSimpleFieldFn } from '@docx/rendering/dom/elements/fields-renderer';
 import { renderDefaultStyle as renderDefaultStyleFn, renderWrapper as renderWrapperFn } from '@docx/rendering/dom/styles/default-styles';
 import { processStyleName as processStyleNameFn, processStyles as processStylesFn, renderFontTable as renderFontTableFn, renderStyles as renderStylesFn, renderTheme as renderThemeFn } from '@docx/rendering/dom/styles/document-styles';
+import { waitForDeclaredFonts } from '@docx/rendering/dom/styles/font-loading';
 import { levelTextToContent as levelTextToContentFn, numberingClass as numberingClassFn, numberingCounter as numberingCounterFn, numFormatToCssValue as numFormatToCssValueFn, processNumberings as processNumberingsFn, renderNumbering as renderNumberingFn, styleToString as styleToStringFn } from '@docx/rendering/dom/styles/numbering-styles';
 import { createPage as createPageFn, createPageContent as createPageContentFn, renderHeaderFooterRef as renderHeaderFooterRefFn } from '@docx/rendering/dom/elements/page-renderer';
 import { splitDocumentIntoPhysicalPages } from '@docx/rendering/pagination/core/modern-page-splitter';
@@ -175,6 +176,14 @@ export class HtmlRendererSync {
 		// before any page splitting or rendering, so page children already have correct parents.
 		linkParents(document.documentPart.body);
 		processElement(document.documentPart.body);
+
+		// Pagination measures rendered element heights synchronously while
+		// appending content. Fonts named only in CSS (e.g. system fonts like
+		// Meiryo) load asynchronously on first use, even when installed
+		// locally - measuring before they're ready would use fallback-font
+		// metrics and produce page breaks that don't match the final,
+		// correctly-sized content.
+		await waitForDeclaredFonts(styleContainer);
 
 		await this.renderPages(document.documentPart.body);
 
@@ -446,6 +455,9 @@ export class HtmlRendererSync {
 				const regionArticle = this.createPageContent(region.section);
 				regionArticle.dataset.sectionId = region.section?.sectionId;
 				regionArticle.dataset.breakBefore = region.breakBefore;
+				if (regionIndex === 0 && !isFirstPage) {
+					regionArticle.dataset.pageStart = 'true';
+				}
 				pageElement.appendChild(regionArticle);
 				this.session.overflowContentElement = pageElement;
 				this.session.checkingOverflow = this.options.breakPages;
@@ -461,6 +473,9 @@ export class HtmlRendererSync {
 			this.session.checkingOverflow = false;
 		} else {
 			const contentElement = this.createPageContent(sectProps);
+			if (!isFirstPage) {
+				contentElement.dataset.pageStart = 'true';
+			}
 			if (this.options.breakPages) {
 				contentElement.style.height = `${contentHeight}pt`;
 			} else {

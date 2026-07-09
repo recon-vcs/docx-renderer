@@ -90,6 +90,36 @@ export function processStyles(
 	return stylesMap;
 }
 
+// The only run-formatting properties that affect a block's own "strut" (the
+// invisible reference line box every block-level element inserts, sized from
+// its own font, that a line must be at least as tall as). Only these two are
+// mirrored onto paragraph elements below - anything else from a run ruleset
+// (color, background, decoration...) would visibly paint a full-width box
+// behind/around the text if applied to the paragraph itself, which real strut
+// boxes never do.
+const STRUT_PROPERTIES = ['font-family', 'font-size'] as const;
+
+function pickStrutDeclarations(declarations: Record<string, string>): Record<string, string> | null {
+	const picked: Record<string, string> = {};
+	for (const key of STRUT_PROPERTIES) {
+		if (declarations[key] !== undefined) {
+			picked[key] = declarations[key];
+		}
+	}
+	return Object.keys(picked).length > 0 ? picked : null;
+}
+
+function buildSelector(style: IDomStyle, target: string, className: string): string {
+	let selector = `${style.label ?? ''}.${style.cssName}`;
+	if (style.label !== target) {
+		selector += ` ${target}`;
+	}
+	if (style.isDefault) {
+		selector = `.${className} ${style.label}, ` + selector;
+	}
+	return selector;
+}
+
 export function renderStyles(
 	styles: IDomStyle[],
 	callbacks: Pick<DocumentStylesCallbacks, 'className' | 'styleToString' | 'createStyleElement'>
@@ -99,17 +129,40 @@ export function renderStyles(
 	for (const style of styles) {
 		// TODO Handle linked styles; linked styles can reference each other.
 
+		// Document defaults (docDefaults' rPrDefault, style.id === null) and
+		// paragraph/numbering styles' own rPr define the *default run*
+		// formatting for a paragraph - i.e. what an empty/under-filled line
+		// falls back to. Word derives such a line's height from that default
+		// run's font, so the paragraph element's own strut must use the same
+		// font metrics, not the browser's UA default. Character styles are
+		// excluded: they only ever apply to explicitly rStyle'd runs, never
+		// define a paragraph's default formatting.
+		const isParagraphScoped = style.id === null || style.label === 'p';
+
 		for (const ruleset of style.rulesets) {
 			//TODO temporary disable modifier until test it well
-			let selector = `${style.label ?? ''}.${style.cssName}`; //${subStyle.mod ?? ''}
-			if (style.label !== ruleset.target) {
-				selector += ` ${ruleset.target}`;
-			}
-			if (style.isDefault) {
-				selector = `.${callbacks.className} ${style.label}, ` + selector;
-			}
+			const selector = buildSelector(style, ruleset.target, callbacks.className);
 
 			styleText += callbacks.styleToString(selector, ruleset.declarations);
+
+			if (isParagraphScoped && ruleset.target === 'span') {
+				const strutDeclarations = pickStrutDeclarations(ruleset.declarations);
+				if (strutDeclarations) {
+					const strutSelector = buildSelector(style, 'p', callbacks.className);
+					styleText += callbacks.styleToString(strutSelector, strutDeclarations);
+				}
+			}
+		}
+
+		// Ignore Spacing Above and Below When Using Identical Styles
+		// (w:contextualSpacing): Word drops the spacing between two paragraphs
+		// of the same style when they're contiguous (typically list items).
+		// This is a purely structural, class-based relationship, so it maps
+		// directly onto adjacent-sibling CSS - no per-paragraph traversal needed.
+		if (style.label === 'p' && style.paragraphProps?.contextualSpacing) {
+			const selfSelector = `p.${style.cssName}`;
+			styleText += callbacks.styleToString(`${selfSelector} + ${selfSelector}`, { 'padding-top': '0pt' });
+			styleText += callbacks.styleToString(`${selfSelector}:has(+ ${selfSelector})`, { 'margin-bottom': '0pt' });
 		}
 	}
 

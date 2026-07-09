@@ -84,14 +84,22 @@ export function parseLineSpacing(paragraphProperties: ParagraphProperties, secti
 					originLine = spacing?.line;
 					break;
 
-				// Spacing after the last line in each paragraph
+				// Spacing after the last line in each paragraph. Kept as a
+				// margin: a trailing bottom margin is not part of the box, so
+				// content that ends exactly at the page bottom still fits -
+				// matching Word, which discards after-spacing at a page break.
 				case 'after':
 					lineSpacing['margin-bottom'] = spacing[key];
 					break;
 
-				// Spacing before the first line in each paragraph
+				// Spacing before the first line in each paragraph. Rendered as
+				// padding, not margin: Word's before/after spacing between two
+				// paragraphs is always additive, while adjacent CSS margins
+				// collapse to the larger of the two. Padding never adjoins a
+				// sibling's margin, so previous margin-bottom + own padding-top
+				// reproduces the additive behaviour.
 				case 'before':
-					lineSpacing['margin-top'] = spacing[key];
+					lineSpacing['padding-top'] = spacing[key];
 					break;
 
 				case 'afterLines':

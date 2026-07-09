@@ -69,3 +69,29 @@ rendered: ほぼ全部左カラム縦一列。column break は docx に存在し
 3. **Phase 3**: 2段組カラム高さ — 部分的に完了、当初仮説の一部も誤りと判明。region article には実際には既に `contentHeight` が設定されていた（`html-renderer-sync.ts` の単一セクション分岐 `renderPage`）。ブラウザ DOM 調査で確認済み。真因は `columnFill: auto`（最初の列をページ全高まで埋めてから次列へ）がそのまま機能していたことで、Word の実際の分割点より段落が「短すぎる」ため列1に入りすぎていた（Phase 2 で判明したフォントメトリクス差が根本原因）。`columnFill: balance` も試したが reference は明らかに不均等分割（列1が列2よりずっと長い）であり balance は悪化したため `auto` に確定（コメントに実測根拠を明記）。列高さ自体の割当ロジックに変更は不要だった。
 
 4. **Phase 4 / 5**: p2/p1/p3 の残差を diff 画像で再確認。コード画像・テキストボックス・箇条書き番号・TOCリーダー線・footnote 位置はいずれも「二重像」パターン（赤+黄が数px〜十数pxずれて重なる）で、すべて Phase 2 で特定したフォントメトリクス環境差の帰結。p2 のアンカーテーブル（緑色セル表）・p5 の表は見た目上ボーダー/シェーディング/セル配置は reference と一致しており、diff が真っ赤に見えるのは高密度な境界線パターンに数px の累積ズレが乗っているため（表そのものの実装バグではない）。四角形埋め込み（図形）と写真前面まわりの wrap 差、および p5 の禁止マーク図形はユーザー指示によりスコープ外（別PR）。
+
+## ラウンド2 (2026-07-09、Windowsフォント fontconfig 導入後)
+
+fontconfig で /mnt/c/Windows/Fonts を参照（メイリオ実体で測定可能に）→ baseline 98.4%。
+そこから縦ドリフトの真因を分解して修正。結果: **overall 98.4→98.9%（p1 99.4 / p2 98.7 / p3 99.8 / p4 99.4 / p5 97.1）**、5ページ維持。
+
+確定した真因と修正（すべて一般ロジック、magic 定数なし）:
+
+1. **段落 strut が UA 既定 16px**: p 要素に run 既定フォント（docDefaults/スタイル rPr）が適用されず、行箱が 16px メイリオ strut(24px) で決まっていた。スタイルの span 向け宣言から font-family/font-size を p にもミラー（document-styles.ts）。
+2. **margin collapse で after 消失**: before→`padding-top` / after→`margin-bottom` に変更（spacing-between-lines.ts）。padding は隣接 margin と衝突せず加算、末尾 margin はページ底で自然に破棄され Word の「ページ末 after-spacing 破棄」と一致。
+3. **GDI 行高丸め**: Word は ascent/descent を px に**別々に ceil**して合算（メイリオ 10.5pt: ceil(14.84)+ceil(6.16)=22px）、ブラウザは合計丸めで 21px → 1px/行の系統ドリフト。canvas で実フォントの ascent/descent 比を実測し `line-height` を GDI 式で設定（gdi-line-height.ts、フォントデータテーブル不要）。`line-height: normal` の箇所のみ適用、exact/atLeast は不変。
+4. **ページ先頭の before-spacing**: Word は自然改ページで到達した先頭段落の space-before を破棄（section 先頭は保持）。`article[data-page-start] > p:first-child { padding-top: 0 }`。
+5. **測定時の幻影 margin**: overflow 測定が article を scroll container 化し最終子の margin-bottom が scrollHeight に算入 → Word なら収まる行が 1px 溢れ 6ページ化。`article > :last-child { margin-bottom: 0 }`（Word のページ末 after 破棄と同義、:last-child が append 順に自動追従）。
+6. **wrapSquare bothSides の左右誤り**: wrapText 未指定/bothSides を無条件 float:left（テキスト右側）にしていたが Word は広い側へ流す。render 時に containing block の実測ギャップ比較で float 側を決定（drawing-renderer.ts）。p2「ｄｆｇｈ」の2行折返し + 6px 溢れが解消。
+7. **画像のみの行の descent**: Word は inline 画像だけの行を画像高さぴったりにする（font descent を足さない）。テキストなし段落の drawing を `vertical-align: text-bottom` に（inline-renderer.ts）。p2 の一律 +8px ズレ解消。
+8. contextualSpacing（同一スタイル連続時の before/after 抑制）を実装: `p.X + p.X { padding-top: 0 }` + `:has(+ p.X) { margin-bottom: 0 }`（Title / List Paragraph が使用）。
+9. フォント読込完了待ち（font-loading.ts）: ページ分割測定前に document.fonts を待機。
+
+前ラウンドの「フォントメトリクス環境差でロジック解消不可」という結論は**誤り**だった（1〜3 が真因）。
+
+残差（今後）:
+- p2 1.3%: 四角形埋め込み float 周辺の行送り・リスト番号 tab gap・テキストボックス枠線
+- p1 0.6%: TOC リーダー線・見出し微小オフセット
+- p4 0.6%: 2段組の分割点微差
+- p5 2.9%: 禁止マーク図形（スコープ外・別PR）・数式位置
+- 図形本体（VML/DrawingML geometry）は別PR

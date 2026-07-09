@@ -14,12 +14,22 @@ export function renderDefaultStyle(className: string): HTMLElement {
 			.${c} table { border-collapse: collapse; break-inside: avoid; }
 			.${c} table td, .${c} table th { vertical-align: top; }
 			/* Word's paragraph spacing (w:spacing before/after) is always additive
-			   between consecutive paragraphs - it never collapses. A sub-pixel
-			   top padding keeps every paragraph's own box from being empty at the
-			   top, which stops the browser's default adjoining-margin collapse
-			   between a paragraph and its previous sibling without adding any
-			   visible offset. */
-			.${c} p { margin: 0pt; min-height: 1em; padding-top: 0.05px; }
+			   between consecutive paragraphs - it never collapses. Before-spacing
+			   is therefore rendered as padding-top and after-spacing as
+			   margin-bottom (see spacing-between-lines.ts): padding never adjoins
+			   a sibling's margin, and a trailing bottom margin is discarded at
+			   the page bottom exactly like Word's after-spacing. */
+			.${c} p { margin: 0pt; padding: 0pt; min-height: 1em; }
+			/* Word discards a paragraph's before-spacing when it lands at the
+			   top of a page, whether it flowed there naturally or continues a
+			   split paragraph. */
+			.${c} article[data-page-start] > p:first-child { padding-top: 0pt; }
+			/* Word also discards after-spacing at the bottom of a page. Overflow
+			   measurement turns the article into a scroll container, which counts
+			   the last child's bottom margin into scrollHeight - zeroing it here
+			   both matches Word and keeps that phantom margin out of pagination.
+			   The rule tracks :last-child automatically as children are appended. */
+			.${c} article > :last-child { margin-bottom: 0pt; }
 			.${c} span { white-space: pre-wrap; overflow-wrap: break-word; }
 			.${c} math { vertical-align: middle; }
 			.${c} .${c}-math-paragraph { break-inside: avoid; page-break-inside: avoid; }

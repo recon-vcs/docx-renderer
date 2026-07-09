@@ -37,6 +37,37 @@ function isOutOfFlowDrawing(elem: WmlDrawing, output: HTMLElement): boolean {
 	return elem.props?.wrapType === WrapType.None || output.style.position === 'absolute';
 }
 
+// For square/tight wrapping without an explicit text side (wrapText
+// "bothSides"/"largest"), Word flows text into the wider gap beside the
+// object. CSS floats can only put text on one side, and the parser defaults
+// to float:left (text on the right). Once the drawing is in the DOM its real
+// gaps are measurable, so flip it to float:right - keeping the same x by
+// converting the left offset into a right margin - whenever the left gap is
+// the wider one.
+function applyWrapSideByWidestGap(elem: WmlDrawing, oDrawing: HTMLElement, parent: HTMLElement): void {
+	const wrapType = elem.props?.wrapType;
+	if (wrapType !== WrapType.Square && wrapType !== WrapType.Tight) return;
+
+	const rawWrapText = elem.props?.wrapText;
+	if (rawWrapText === 'left' || rawWrapText === 'right') return;
+	if (oDrawing.style.float !== 'left') return;
+
+	// The anchor run is an inline span with an unreliable rect; gaps only
+	// make sense against the containing block the float is positioned in.
+	const containingBlock = oDrawing.closest('p, td, th, li, article');
+	if (!containingBlock) return;
+
+	const containerRect = containingBlock.getBoundingClientRect();
+	const drawingRect = oDrawing.getBoundingClientRect();
+	const leftGap = drawingRect.left - containerRect.left;
+	const rightGap = containerRect.right - drawingRect.right;
+	if (leftGap <= rightGap) return;
+
+	oDrawing.style.float = 'right';
+	oDrawing.style.marginLeft = '0';
+	oDrawing.style.marginRight = `${rightGap}px`;
+}
+
 export async function renderDrawing(
 	elem: WmlDrawing,
 	parent: HTMLElement,
@@ -64,6 +95,7 @@ export async function renderDrawing(
 	}
 
 	const isOverflow = await ctx.appendChildren(parent, oDrawing);
+	applyWrapSideByWidestGap(elem, oDrawing, parent);
 	await ctx.runWithoutOverflowTracking(() => ctx.renderChildren(elem, oDrawing));
 	oDrawing.dataset.overflow = outOfFlow ? Overflow.SKIP : isOverflow;
 	return oDrawing;

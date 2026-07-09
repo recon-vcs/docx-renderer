@@ -12,6 +12,7 @@ export interface WmlParagraph extends OpenXmlElement {
 }
 
 export interface ParagraphProperties extends CommonProperties {
+	contextualSpacing?: boolean;
 	keepLines?: boolean;
 	keepNext?: boolean;
 	numbering?: ParagraphNumbering;
@@ -73,9 +74,13 @@ export function parseParagraphProperty(elem: Element, props: ParagraphProperties
 
 			break;
 
-		// TODO Ignore Spacing Above and Below When Using Identical Styles
+		// Ignore Spacing Above and Below When Using Identical Styles: when this
+		// paragraph is contiguous with another paragraph of the same style
+		// (typically list items), Word suppresses the before/after spacing
+		// between them. Rendered as CSS adjacent-sibling rules - see
+		// document-styles.ts.
 		case "contextualSpacing":
-
+			props.contextualSpacing = xml.boolAttr(elem, "val", true);
 			break;
 
 		// TODO Associated HTML div ID
