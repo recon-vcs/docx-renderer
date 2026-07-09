@@ -61,3 +61,40 @@
 - `pnpm measure:all`: docx-renderer 98.901%、p1 99.531 / p2 98.702 / p3 99.787 / p4 99.387 / p5 97.101。既存 accuracy 画像と一致。
 
 結論: 行高を増やす修正は p2 を壊すので却下。まず測定ブラウザのフォント解決を固定した。残る p1 の上寄りは Windows フォント使用後の本物の layout 差として扱う。
+
+## ラウンド5（2026-07-09、実バグ3件特定・修正だが視覚的ズレは未解決）
+
+### 見つけて直したバグ
+
+DOM実機測定（`getBoundingClientRect`/`getComputedStyle`/canvas font metrics probe）で機序を特定。3件とも live DOM mutation で効果を先に確認してからコード反映。
+
+1. **mixed-font 段落の line-height 握り潰し**（`gdi-line-height.ts` / `inline-renderer.ts`）
+   `renderParagraph` が子 run 描画前に段落自身の line-height を確定させ、子 span 側の `applyGdiLineHeight` は「継承した非 normal 値」を見て「もう明示済み」と誤判定しスキップしていた。段落の strut フォントと実際の run フォントが異なる場合（例: 見出し1本文＝段落 strut は游ゴシック Light だが実テキスト run はメイリオ）、run 側の高さ補正が効かず段落全体が低くなる。
+   修正: run 呼び出し側に `force` オプション追加、継承由来の非 normal は無視して自前フォントで再計算。run は OOXML 上そもそも自分の line-height を持たない（段落プロパティのみ）ので、常に上書きしてよい。
+
+2. **docGrid line-height スナップが段落固有 props だけ見ていた**（`inline-renderer.ts`）
+   `renderParagraph` の `parseLineSpacing` 呼び出しが `elem.props`（そのパラグラフ instance が直接持つ pPr）だけを渡していて、style 側の `spacing`（before/after/line）をマージしていなかった。ほとんどの段落は spacing を style 側から継承するため、この呼び出しは「明示 spacing 無し」と誤判定し、`snapToGrid=true` の段落（TOC Heading 等）を doc grid 1 行分（linePitch そのまま）に強制スナップ、CSS クラス側の正しい line-height（style 由来）を inline style で上書きしていた。
+   修正: `elem.props.spacing ?? style?.paragraphProps?.spacing` でマージしてから渡す。
+
+3. **TOC tab leader の vertical-align 欠落**（`javascript.ts` `applyTabLeader`）
+   `display:inline-block` + `overflow:hidden` だけで `vertical-align` を明示していなかった。CSS2.1 10.8.1 により、overflow が visible でない inline-block の baseline 基準は「テキストの baseline」でなく「box の下端」になる。結果、leader の点々が本来の位置より浮いて見え、かつ line box がその分膨張していた。
+   修正: `vertical-align: bottom` を明示。
+
+### 検証結果と重要な気づき
+
+- `pnpm test` 103 pass、回帰なし。
+- `pnpm measure:all`: p1 は 99.531%（バグ2件修正後）→ tab leader 修正適用後 99.486%（数値上は悪化）。
+- **だが `diff.png` を目視すると、3件とも「個々には正しいバグ修正」なのに、ページ全体のズレは消えていない。ズレの発生箇所が入れ替わっただけ。** 修正前は 内容/TOC見出し1/↑目次/見出し1本文/本文/改行のみ が一致、見出し2・3(TOC)/見出し2・3(本文) がズレていた。修正後は 内容/TOC見出し1/見出し1〜3本文 が新たにズレ、↑目次 は逆に一致するようになった。
+  → 一部の段落は「別の未解決バグと偶然相殺して、たまたま合っていた」だけだった。片方を直すと相殺が崩れて別の場所にズレが出る。トータルのズレ量はスコア的にもほぼ変わっていない（フラット〜微減）。
+- tab leader 修正はスコアを下げるが、点々が baseline に乗る＝視覚的には明確に正しいので維持を選択（対症療法ではなく実際のCSSバグ）。数値より見た目を優先する判断はユーザー確認済み。
+
+### 未解決: 表題→内容の gap 不足（-20px 実測）
+
+- `表題`(style a3, 游ゴシック Light) → `内容`(TOC Heading) の段落間 gap が、reference 比で約20px 不足。
+- フォント一致は確認済み（段落 strut・実 run とも游ゴシック Light、mixed-font ではない）。GDI line-height 計算（`gdi-line-height.ts`）も他の行と同じロジックで一貫しており、単体のバグ箇所が見当たらない。
+- `表題` の `margin-bottom` を実験的に +20px すると、この1箇所だけ reference に一致し p1 スコアも 99.533% まで上がる。ただし「なぜ20pxか」の根拠がなく、コードへの反映（`Title` style への決め打ち）は保留。
+
+### 結論
+
+残るズレの本丸は、Word内部の line-height 算出（GDI/DirectWrite ベースと推定、未文書化）と、こちらの `line-height: normal`（ブラウザの font-metrics 依存）の間の乖離そのもの。個別段落へのパッチはモグラ叩きになりやすい（今回がまさにそれ）。
+次に進むなら、段落単体（表題・見出し1/2/3・TOC・本文）ごとに「reference が要求する実際の line-height」を先に一覧化し、フォント／サイズとの相関パターンを見てから直すべき。パターンが見えないまま個別修正を重ねるのは前回・今回と同じ失敗を繰り返すだけ。
