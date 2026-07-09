@@ -8,7 +8,7 @@ Every library renders `tests/fixtures/a.docx` inside `benchmark/`, at viewport 1
 
 | Library | Pages rendered | Overall score |
 |---|---|---|
-| docx-renderer (this project) | 5 / 5 | **98.899%** |
+| docx-renderer (this project) | 5 / 5 | **98.890%** |
 | docx-preview-sync (fork parent) | 5 / 5 | **94.227%** |
 | docx-preview (docxjs, original) | 3 / 5 | **53.285%** |
 
@@ -16,13 +16,13 @@ Every library renders `tests/fixtures/a.docx` inside `benchmark/`, at viewport 1
 
 | Page | Score |
 |---|---|
-| 1 | 99.531% |
+| 1 | 99.486% |
 | 2 | 98.702% |
 | 3 | 99.787% |
 | 4 | 99.376% |
 | 5 | 97.101% |
 
-### Page 1 — 99.531%
+### Page 1 — 99.486%
 
 <p align="center">
   <img src="./accuracy/docx-renderer/page-1-reference.png" width="30%" alt="Word reference, page 1">

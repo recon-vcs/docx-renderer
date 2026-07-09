@@ -112,6 +112,12 @@ function applyTabLeader(element: HTMLElement, leader: string, widthPt: number, p
 	element.style.overflow = 'hidden';
 	element.style.whiteSpace = 'nowrap';
 	element.style.textDecoration = 'inherit';
+	// A non-`visible` overflow turns this inline-block's baseline into its
+	// bottom margin edge (CSS2.1 10.8.1) instead of its text's own baseline -
+	// pulling the leader glyphs up off the line's real baseline and forcing
+	// the whole line box to grow to contain both. Aligning by bottom instead
+	// keeps the glyphs on the same baseline as the rest of the line.
+	element.style.verticalAlign = 'bottom';
 
 	const glyph = leaderGlyph(leader);
 	if (!glyph) {
