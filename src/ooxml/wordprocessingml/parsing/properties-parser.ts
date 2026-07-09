@@ -137,6 +137,11 @@ export function parseDefaultProperties(
 				style["background-color"] = xmlUtil.colorAttr(c, "fill", null, autos.shd);
 				break;
 
+			// Expanded or compressed character pitch.
+			case "spacing":
+				style["letter-spacing"] = xml.lengthAttr(c, "val");
+				break;
+
 			// Small Caps
 			case "smallCaps":
 				style["font-variant"] = xml.boolAttr(c, "val", true) ? "small-caps" : "none";
@@ -412,7 +417,7 @@ export function parseSpacing(node: Element, run: WmlRun, options: DocumentParser
 	for (const attr of xml.attrs(node)) {
 		switch (attr.localName) {
 			case "val":
-				run.cssStyle["margin-bottom"] = xml.lengthAttr(node, "val");
+				run.cssStyle["letter-spacing"] = xml.lengthAttr(node, "val");
 				break;
 			default:
 				if (options.debug) {

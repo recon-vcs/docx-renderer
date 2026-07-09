@@ -3,6 +3,7 @@ import { TabStop } from '@docx/ooxml/wordprocessingml/document/model/paragraph';
 
 const defaultTab: TabStop = { position: 0, leader: "none", style: "left" };
 const maxTabs = 50;
+let leaderMeasureContext: CanvasRenderingContext2D | null = null;
 
 // calculate pixel to point ratio.
 // ratio = point / pixel;
@@ -21,6 +22,7 @@ export function computePointToPixelRatio(container: HTMLElement = document.body)
 }
 
 export function updateTabStop(element: HTMLElement, tabs: TabStop[], defaultTabSize: Length, pixelToPoint: number = 72 / 96) {
+	resetTabElement(element);
 	// element's parent paragraph
 	const oParagraph: HTMLParagraphElement = element.closest("p");
 	// element rect
@@ -90,31 +92,78 @@ export function updateTabStop(element: HTMLElement, tabs: TabStop[], defaultTabS
 		width = tab.position - left;
 	}
 
-	element.innerHTML = "&nbsp;";
-	element.style.textDecoration = "inherit";
-	element.style.wordSpacing = `${width.toFixed(0)}pt`;
+	applyTabLeader(element, tab.leader, Math.max(width, 0), pixelToPoint);
+}
 
-	switch (tab.leader) {
+function resetTabElement(element: HTMLElement): void {
+	element.textContent = '\u00a0';
+	element.style.display = '';
+	element.style.width = '';
+	element.style.overflow = '';
+	element.style.whiteSpace = '';
+	element.style.wordSpacing = '';
+	element.style.textDecoration = 'inherit';
+	element.style.textDecorationLine = 'none';
+}
+
+function applyTabLeader(element: HTMLElement, leader: string, widthPt: number, pixelToPoint: number): void {
+	element.style.display = 'inline-block';
+	element.style.width = `${widthPt.toFixed(2)}pt`;
+	element.style.overflow = 'hidden';
+	element.style.whiteSpace = 'nowrap';
+	element.style.textDecoration = 'inherit';
+
+	const glyph = leaderGlyph(leader);
+	if (!glyph) {
+		element.textContent = '\u00a0';
+		element.style.wordSpacing = `${widthPt.toFixed(2)}pt`;
+		return;
+	}
+
+	element.style.wordSpacing = '';
+	element.textContent = glyph.repeat(leaderGlyphCount(element, glyph, widthPt, pixelToPoint));
+}
+
+function leaderGlyph(leader: string): string | null {
+	switch (leader) {
 		case "dot":
+			return ".";
 		case "middleDot":
-			element.style.textDecorationLine = "underline";
-			element.style.textDecorationStyle = "dotted";
-			break;
-
+			return "·";
 		case "hyphen":
-			element.style.textDecorationLine = "underline";
-			element.style.textDecorationStyle = "dashed";
-			break;
-
+			return "-";
 		case "heavy":
 		case "underscore":
-			element.style.textDecorationLine = "underline";
-			element.style.textDecorationStyle = "solid";
-			break;
-
+			return "_";
 		case "none":
 		default:
-			element.style.textDecorationLine = "none";
-			break;
+			return null;
 	}
+}
+
+function leaderGlyphCount(element: HTMLElement, glyph: string, widthPt: number, pixelToPoint: number): number {
+	const widthPx = widthPt / pixelToPoint;
+	const glyphWidth = measureLeaderGlyph(element, glyph);
+	if (!Number.isFinite(glyphWidth) || glyphWidth <= 0) {
+		return 1;
+	}
+	return Math.max(1, Math.ceil(widthPx / glyphWidth) + 2);
+}
+
+function measureLeaderGlyph(element: HTMLElement, glyph: string): number {
+	if (!leaderMeasureContext) {
+		leaderMeasureContext = document.createElement('canvas').getContext('2d');
+	}
+	if (!leaderMeasureContext) {
+		return 0;
+	}
+
+	const style = getComputedStyle(element);
+	leaderMeasureContext.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+	const letterSpacing = parseFloat(style.letterSpacing);
+	let spacing = 0;
+	if (Number.isFinite(letterSpacing)) {
+		spacing = letterSpacing;
+	}
+	return leaderMeasureContext.measureText(glyph).width + spacing;
 }

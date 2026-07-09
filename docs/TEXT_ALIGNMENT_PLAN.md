@@ -13,30 +13,27 @@
 
 ## 修正順
 
-1. **文字位置計測を固定**
+1. **文字位置計測を固定** — 実施済み
    - `pnpm measure:all` で現状画像を再生成。
    - `agent-browser` で p1 を開き、表題、TOC 見出し、leader、ページ番号の DOM rect と computed style を取る。
    - reference PNG 側は `pngjs` で同じ文字塊の bbox を取る。以後は「どの文字塊が何 px ずれたか」で判断する。
 
-2. **run `w:spacing` を直す**
-   - `src/ooxml/wordprocessingml/parsing/properties-parser.ts` の `parseSpacing` を `letter-spacing` へ変更。
-   - `margin-bottom` への変換を消す。run spacing は縦余白ではない。
-   - paragraph style の run ruleset から生成された span/p strut にも、必要な範囲で同じ文字幅が効くことを確認。
-   - 期待効果: 表題、見出し、p4 の「大きい文字」など、文字幅由来の x/y 連鎖ズレが減る。
+2. **run `w:spacing` を直す** — 実施済み
+   - `src/ooxml/wordprocessingml/parsing/properties-parser.ts` の direct run `parseSpacing` を `letter-spacing` へ変更。
+   - style/default `rPr` の `w:spacing` も `letter-spacing` へ変換。表題 style の `w:spacing="-10"` はここを通る。
+   - `margin-bottom` への変換を消した。run spacing は縦余白ではない。
 
-3. **TOC tab leader を Word 型にする**
-   - `<w:tab>` は underline ではなく leader span にする。
-   - tab stop までの残り幅を測り、現在 font/size/letter-spacing で dot glyph を繰り返す。
-   - 最後のページ番号の右端を `w:tab w:pos="8494"` に合わせる。
-   - font load 後に再計算する。既存の `refreshTabStops()` に統合する。
-   - 期待効果: p1 TOC の長い横線差分を消す。
+3. **TOC tab leader を Word 型にする** — 実施済み
+   - `<w:tab>` は underline ではなく leader glyph span にする。
+   - tab stop までの残り幅を測り、現在 font/size/letter-spacing で glyph を繰り返す。
+   - font load 後の `refreshTabStops()` 再計算に統合。
 
-4. **CJK 互換設定を実装範囲に入れる**
+4. **CJK 互換設定を実装範囲に入れる** — 未実施
    - settings parser に `characterSpacingControl`、`useFELayout`、`balanceSingleByteDoubleByteWidth` を保持させる。
    - まず `compressPunctuation` だけ実測で効く箇所を確認する。全テキストへ固定 letter-spacing を足さない。
    - `leftChars` / `hangingChars` / `firstLineChars` は、char grid がある時だけ文字単位インデントとして評価する。`left` と二重適用しない。
 
-5. **docGrid は対象を限定**
+5. **docGrid は対象を限定** — 継続
    - Normal の `snapToGrid=0` を尊重する。
    - TOC Heading と明示 `snapToGrid` 段落だけ line pitch を確認する。
    - p4 の2段組みは、文字幅と行高が直った後に column split を再測定する。先に column fill をいじらない。
@@ -46,5 +43,13 @@
 - 必須: `pnpm test`、`pnpm measure:all`。
 - 目標: p1 の表題/TOC 二重像を消す。p1〜p4 はページ数維持で 99.8% 以上を先に狙う。100% は diff を見て残差を個別に潰す。
 - 回帰条件: 5ページが6ページになる、p2 の画像/表位置が崩れる、p4 の2段組み分配が悪化する。この場合は止めて原因を測る。
+
+## 今回の結果
+
+- `pnpm test`: 103 tests passed。
+- `pnpm run build`: 成功。
+- `pnpm measure:all`: 5183 使用中で失敗。代替として `agent-browser` + `scripts/measure-accuracy.mjs` で docx-renderer のみ採点。
+- 結果: p1 99.53% / p2 98.70% / p3 99.79% / p4 99.39% / p5 97.10%、5ページ維持。
+- `ACCURACY.md` の丸め表示は p1 99.5%。`accuracy/docx-renderer` の画像は最新採点で更新。
 
 根本原因候補: run spacing を縦余白として扱う誤変換、TOC leader の描画モデル違い、CJK 互換設定未反映。

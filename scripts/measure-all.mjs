@@ -95,7 +95,7 @@ async function main() {
 			});
 
 			runs.push({ ...renderer, ...scored });
-			console.log(`${renderer.label}: ${(scored.overall * 100).toFixed(1)}% (${scored.pagesRendered} pages rendered)`);
+			console.log(`${renderer.label}: ${pctAccuracy(scored.overall)} (${scored.pagesRendered} pages rendered)`);
 		}
 
 		renderComparisonChart(runs, `${ROOT}/accuracy`);
@@ -111,7 +111,11 @@ async function main() {
 	}
 }
 
-function pct(n) {
+function pctAccuracy(n) {
+	return `${(n * 100).toFixed(3)}%`;
+}
+
+function pctReadme(n) {
 	return `${(n * 100).toFixed(1)}%`;
 }
 
@@ -127,7 +131,7 @@ function writeAccuracyReport(runs) {
 		'',
 		'| Library | Pages rendered | Overall score |',
 		'|---|---|---|',
-		...runs.map((r) => `| ${r.title} | ${r.pagesRendered} / ${r.results.length} | **${pct(r.overall)}** |`),
+		...runs.map((r) => `| ${r.title} | ${r.pagesRendered} / ${r.results.length} | **${pctAccuracy(r.overall)}** |`),
 		'',
 	];
 
@@ -135,13 +139,13 @@ function writeAccuracyReport(runs) {
 		lines.push(`## ${run.title}`, '');
 		lines.push('| Page | Score |', '|---|---|');
 		for (const r of run.results) {
-			lines.push(`| ${r.page} | ${r.missing ? '0% (not rendered)' : pct(r.score)} |`);
+			lines.push(`| ${r.page} | ${r.missing ? '0% (not rendered)' : pctAccuracy(r.score)} |`);
 		}
 		lines.push('');
 		for (const r of run.results) {
 			if (r.missing) continue;
 			lines.push(
-				`### Page ${r.page} — ${pct(r.score)}`,
+				`### Page ${r.page} — ${pctAccuracy(r.score)}`,
 				'',
 				`<p align="center">`,
 				`  <img src="./accuracy/${run.label}/page-${r.page}-reference.png" width="30%" alt="Word reference, page ${r.page}">`,
@@ -169,7 +173,7 @@ function updateReadme(runs) {
 		'  </picture>',
 		'</p>',
 		'',
-		`Representative page (page 2 of 5 — code block, image, table, text box) rendered by \`docx-renderer\`, scoring ${pct(showcasePage.score)}:`,
+		`Representative page (page 2 of 5 — code block, image, table, text box) rendered by \`docx-renderer\`, scoring ${pctReadme(showcasePage.score)}:`,
 		'',
 		'<p align="center">',
 		'  <img src="./accuracy/docx-renderer/page-2-reference.png" width="30%" alt="Microsoft Word reference, page 2">',
